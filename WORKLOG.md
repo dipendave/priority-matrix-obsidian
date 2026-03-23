@@ -34,3 +34,4 @@ Track of development iterations and time estimates.
 | 2026-03-02 21:00 | ~30min | Added 93 view integration tests covering all core UI flows (add, edit, delete, undo, drag, rendering, persistence, validation, accessibility) with enhanced obsidian DOM mock |
 | 2026-03-22 12:00 | ~30min | Task completion feature — checkbox on tasks, collapsible completed bin with quadrant dots and relative time, revive/delete from bin, 42 new tests (TDD), 205 total |
 | 2026-03-22 13:00 | ~15min | Design eval polish — completion undo notice, green checkbox color, stronger border contrast, auto-expand on first completion, fixture updated with checkboxes + completed section, 3 new tests |
+| 2026-03-22 14:00 | ~5min | Auto-release pipeline — post-commit hook tags and pushes on every commit, minor version bumps every 10 patches |

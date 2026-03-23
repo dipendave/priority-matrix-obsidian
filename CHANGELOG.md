@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-03-22 14:00] - Auto-release on Every Push
+
+**Changed:**
+- `post-commit` hook auto-tags and pushes the tag after every commit, triggering the GitHub release workflow
+- Minor version bumps every 10 patches (e.g., 1.0.9 → 1.1.0) in `scripts/bump-version.mjs`
+
+**Files:**
+- `scripts/bump-version.mjs`
+- `.git/hooks/post-commit` (local only, not tracked)
+
+---
+
 ## [2026-03-22 13:00] - Design Evaluation Polish
 
 **Changed:**

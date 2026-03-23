@@ -17,7 +17,10 @@ const pkg = JSON.parse(readFileSync(packagePath, "utf8"));
 
 const [major, minor, patch] = manifest.version.split(".").map(Number);
 const oldVersion = manifest.version;
-const newVersion = `${major}.${minor}.${patch + 1}`;
+// Bump minor every 10 patches (e.g., 1.0.9 → 1.1.0), otherwise bump patch
+const newVersion = patch + 1 >= 10
+	? `${major}.${minor + 1}.0`
+	: `${major}.${minor}.${patch + 1}`;
 
 manifest.version = newVersion;
 writeFileSync(manifestPath, JSON.stringify(manifest, null, "\t") + "\n", "utf8");
