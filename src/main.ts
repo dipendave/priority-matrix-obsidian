@@ -74,8 +74,28 @@ export default class EisenhowerMatrixPlugin extends Plugin {
 
 	getTasksForQuadrant(quadrant: Quadrant): Task[] {
 		return this.data.tasks
-			.filter((t) => t.quadrant === quadrant)
+			.filter((t) => t.quadrant === quadrant && !t.completedAt)
 			.sort((a, b) => a.order - b.order);
+	}
+
+	completeTask(taskId: string): boolean {
+		const task = this.data.tasks.find((t) => t.id === taskId);
+		if (!task) return false;
+		task.completedAt = new Date().toISOString();
+		return true;
+	}
+
+	uncompleteTask(taskId: string): boolean {
+		const task = this.data.tasks.find((t) => t.id === taskId);
+		if (!task || !task.completedAt) return false;
+		task.completedAt = null;
+		return true;
+	}
+
+	getCompletedTasks(): Task[] {
+		return this.data.tasks
+			.filter((t) => !!t.completedAt)
+			.sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime());
 	}
 
 	addTask(title: string, quadrant: Quadrant, dueDate: string | null): Task {

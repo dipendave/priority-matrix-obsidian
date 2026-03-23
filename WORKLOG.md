@@ -32,3 +32,4 @@ Track of development iterations and time estimates.
 | 2026-03-02 20:00 | ~5min | Added onExternalSettingsChange() hook for Obsidian Sync support — reloads data and re-renders view when data.json is updated externally |
 | 2026-03-02 20:15 | ~5min | Added 5 unit tests for onExternalSettingsChange() to guard against sync regression |
 | 2026-03-02 21:00 | ~30min | Added 93 view integration tests covering all core UI flows (add, edit, delete, undo, drag, rendering, persistence, validation, accessibility) with enhanced obsidian DOM mock |
+| 2026-03-22 12:00 | ~30min | Task completion feature — checkbox on tasks, collapsible completed bin with quadrant dots and relative time, revive/delete from bin, 42 new tests (TDD), 205 total |

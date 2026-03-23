@@ -48,10 +48,18 @@ export interface Task {
 	id: string;
 	title: string;
 	quadrant: Quadrant;
-	dueDate: string | null; // YYYY-MM-DD or null
-	createdAt: string;      // ISO 8601 datetime
+	dueDate: string | null;    // YYYY-MM-DD or null
+	createdAt: string;         // ISO 8601 datetime
 	order: number;
+	completedAt?: string | null; // ISO 8601 datetime when completed, falsy = active
 }
+
+export const QUADRANT_COLORS: Record<Quadrant, string> = {
+	[Quadrant.Q1]: "#ef4444",
+	[Quadrant.Q2]: "#3b82f6",
+	[Quadrant.Q3]: "#f59e0b",
+	[Quadrant.Q4]: "#6b7280",
+};
 
 export interface EisenhowerMatrixData {
 	tasks: Task[];

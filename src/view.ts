@@ -3,6 +3,7 @@ import {
 	VIEW_TYPE_EISENHOWER,
 	Quadrant,
 	QUADRANT_META,
+	QUADRANT_COLORS,
 	QuadrantMeta,
 	Task,
 } from "./types";
@@ -74,6 +75,12 @@ export class EisenhowerMatrixView extends ItemView {
 		const quadrantOrder = [Quadrant.Q1, Quadrant.Q2, Quadrant.Q3, Quadrant.Q4];
 		for (const q of quadrantOrder) {
 			this.renderQuadrant(grid, QUADRANT_META[q]);
+		}
+
+		// Completed section
+		const completedTasks = this.plugin.getCompletedTasks();
+		if (completedTasks.length > 0) {
+			this.renderCompletedSection(container, completedTasks);
 		}
 
 		requestAnimationFrame(() => this.updateOverflowIndicators());
@@ -152,6 +159,13 @@ export class EisenhowerMatrixView extends ItemView {
 		// Drag handle
 		const dragHandle = taskEl.createDiv({ cls: "em-task-drag-handle" });
 		dragHandle.textContent = "\u2630";
+
+		// Completion checkbox
+		const checkbox = taskEl.createDiv({ cls: "em-task-checkbox" });
+		checkbox.addEventListener("click", (e) => {
+			e.stopPropagation();
+			void this.handleCompleteTask(task.id);
+		});
 
 		// Content
 		const contentEl = taskEl.createDiv({ cls: "em-task-content" });
@@ -296,6 +310,18 @@ export class EisenhowerMatrixView extends ItemView {
 		});
 	}
 
+	private async handleCompleteTask(taskId: string): Promise<void> {
+		this.plugin.completeTask(taskId);
+		await this.plugin.savePluginData();
+		this.renderMatrix();
+	}
+
+	private async handleUncompleteTask(taskId: string): Promise<void> {
+		this.plugin.uncompleteTask(taskId);
+		await this.plugin.savePluginData();
+		this.renderMatrix();
+	}
+
 	private async handleEditTask(taskId: string, title: string, dueDate: string | null): Promise<void> {
 		this.plugin.editTask(taskId, title, dueDate);
 		await this.plugin.savePluginData();
@@ -361,6 +387,67 @@ export class EisenhowerMatrixView extends ItemView {
 
 		titleInput.focus();
 		titleInput.select();
+	}
+
+	// ==================== COMPLETED SECTION ====================
+
+	private renderCompletedSection(container: HTMLElement, tasks: Task[]): void {
+		const section = container.createDiv({ cls: "em-completed-section" });
+
+		// Header
+		const header = section.createDiv({ cls: "em-completed-header" });
+		const chevron = header.createSpan({ cls: "em-completed-chevron" });
+		chevron.textContent = "\u25B6";
+		header.createSpan({ text: `Completed (${tasks.length})` });
+
+		// List (collapsed by default)
+		const list = section.createDiv({ cls: "em-completed-list em-hidden" });
+
+		for (const task of tasks) {
+			this.renderCompletedTask(list, task);
+		}
+
+		header.addEventListener("click", () => {
+			const isHidden = list.hasClass("em-hidden");
+			list.toggleClass("em-hidden", !isHidden);
+			chevron.toggleClass("em-completed-chevron-open", isHidden);
+		});
+	}
+
+	private renderCompletedTask(listEl: HTMLElement, task: Task): void {
+		const taskEl = listEl.createDiv({ cls: "em-completed-task" });
+
+		// Checked checkbox (click to revive)
+		const checkbox = taskEl.createDiv({ cls: "em-task-checkbox em-checked" });
+		checkbox.addEventListener("click", (e) => {
+			e.stopPropagation();
+			void this.handleUncompleteTask(task.id);
+		});
+
+		// Title (strikethrough via CSS)
+		taskEl.createDiv({ cls: "em-completed-task-title", text: task.title });
+
+		// Quadrant color dot
+		const dot = taskEl.createDiv({ cls: "em-quadrant-dot" });
+		dot.setCssStyles({ background: QUADRANT_COLORS[task.quadrant] });
+
+		// Completion time
+		taskEl.createDiv({
+			cls: "em-completed-task-time",
+			text: formatCompletedDate(task.completedAt!),
+		});
+
+		// Delete button
+		const deleteBtn = taskEl.createEl("button", {
+			cls: "em-task-delete",
+			attr: { "aria-label": "Delete task" },
+		});
+		deleteBtn.textContent = "\u00d7";
+
+		deleteBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			void this.handleDeleteTask(task.id);
+		});
 	}
 
 	// ==================== DESKTOP DRAG & DROP ====================
@@ -588,4 +675,19 @@ export function formatDueDate(dateStr: string): string {
 export function isDueDatePast(dateStr: string): boolean {
 	const date = new Date(dateStr + "T23:59:59");
 	return date < new Date();
+}
+
+export function formatCompletedDate(isoDateStr: string): string {
+	const completed = new Date(isoDateStr);
+	const now = new Date();
+	const diffMs = now.getTime() - completed.getTime();
+	const diffMin = Math.floor(diffMs / 60000);
+	const diffHours = Math.floor(diffMs / 3600000);
+	const diffDays = Math.floor(diffMs / 86400000);
+
+	if (diffMin < 1) return "Just now";
+	if (diffMin < 60) return `${diffMin} min ago`;
+	if (diffHours < 24) return `${diffHours} hours ago`;
+	if (diffDays === 1) return "Yesterday";
+	return `${diffDays} days ago`;
 }

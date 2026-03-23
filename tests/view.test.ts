@@ -1,4 +1,4 @@
-import { formatDueDate, isDueDatePast } from "../src/view";
+import { formatDueDate, isDueDatePast, formatCompletedDate } from "../src/view";
 
 describe("formatDueDate", () => {
 	beforeEach(() => {
@@ -68,5 +68,50 @@ describe("isDueDatePast", () => {
 	it("returns true for a past date", () => {
 		jest.setSystemTime(new Date("2025-06-15T12:00:00"));
 		expect(isDueDatePast("2025-06-14")).toBe(true);
+	});
+});
+
+describe("formatCompletedDate", () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+	});
+
+	afterEach(() => {
+		jest.useRealTimers();
+	});
+
+	it('returns "Just now" for less than 1 minute ago', () => {
+		jest.setSystemTime(new Date("2026-01-01T12:00:30Z"));
+		expect(formatCompletedDate("2026-01-01T12:00:00Z")).toBe("Just now");
+	});
+
+	it('returns "X min ago" for less than 1 hour', () => {
+		jest.setSystemTime(new Date("2026-01-01T12:15:00Z"));
+		expect(formatCompletedDate("2026-01-01T12:00:00Z")).toBe("15 min ago");
+	});
+
+	it('returns "1 min ago" for exactly 1 minute', () => {
+		jest.setSystemTime(new Date("2026-01-01T12:01:00Z"));
+		expect(formatCompletedDate("2026-01-01T12:00:00Z")).toBe("1 min ago");
+	});
+
+	it('returns "X hours ago" for less than 24 hours', () => {
+		jest.setSystemTime(new Date("2026-01-01T15:00:00Z"));
+		expect(formatCompletedDate("2026-01-01T12:00:00Z")).toBe("3 hours ago");
+	});
+
+	it('returns "1 hours ago" for exactly 1 hour', () => {
+		jest.setSystemTime(new Date("2026-01-01T13:00:00Z"));
+		expect(formatCompletedDate("2026-01-01T12:00:00Z")).toBe("1 hours ago");
+	});
+
+	it('returns "Yesterday" for 1 day ago', () => {
+		jest.setSystemTime(new Date("2026-01-02T12:00:00Z"));
+		expect(formatCompletedDate("2026-01-01T12:00:00Z")).toBe("Yesterday");
+	});
+
+	it('returns "X days ago" for multiple days', () => {
+		jest.setSystemTime(new Date("2026-01-06T12:00:00Z"));
+		expect(formatCompletedDate("2026-01-01T12:00:00Z")).toBe("5 days ago");
 	});
 });

@@ -339,6 +339,125 @@ describe("EisenhowerMatrixPlugin", () => {
 		});
 	});
 
+	describe("completeTask", () => {
+		it("sets completedAt to an ISO string", () => {
+			const plugin = createPlugin();
+			const task = plugin.addTask("Complete me", Quadrant.Q1, null);
+
+			const result = plugin.completeTask(task.id);
+
+			expect(result).toBe(true);
+			expect(plugin.data.tasks[0].completedAt).toBeTruthy();
+			expect(new Date(plugin.data.tasks[0].completedAt!).toISOString()).toBe(plugin.data.tasks[0].completedAt);
+		});
+
+		it("returns false for nonexistent task ID", () => {
+			const plugin = createPlugin();
+			expect(plugin.completeTask("nonexistent")).toBe(false);
+		});
+
+		it("overwrites completedAt if already completed", () => {
+			jest.useFakeTimers();
+			jest.setSystemTime(new Date("2026-01-01T12:00:00Z"));
+
+			const plugin = createPlugin();
+			const task = plugin.addTask("Task", Quadrant.Q1, null);
+			plugin.completeTask(task.id);
+			const firstCompletedAt = plugin.data.tasks[0].completedAt;
+
+			jest.setSystemTime(new Date("2026-01-02T12:00:00Z"));
+			plugin.completeTask(task.id);
+
+			expect(plugin.data.tasks[0].completedAt).not.toBe(firstCompletedAt);
+			jest.useRealTimers();
+		});
+	});
+
+	describe("uncompleteTask", () => {
+		it("clears completedAt to null", () => {
+			const plugin = createPlugin();
+			const task = plugin.addTask("Task", Quadrant.Q1, null);
+			plugin.completeTask(task.id);
+			expect(plugin.data.tasks[0].completedAt).toBeTruthy();
+
+			const result = plugin.uncompleteTask(task.id);
+
+			expect(result).toBe(true);
+			expect(plugin.data.tasks[0].completedAt).toBeNull();
+		});
+
+		it("returns false for nonexistent task ID", () => {
+			const plugin = createPlugin();
+			expect(plugin.uncompleteTask("nonexistent")).toBe(false);
+		});
+
+		it("returns false if task is not completed", () => {
+			const plugin = createPlugin();
+			const task = plugin.addTask("Active task", Quadrant.Q1, null);
+
+			expect(plugin.uncompleteTask(task.id)).toBe(false);
+		});
+	});
+
+	describe("getCompletedTasks", () => {
+		it("returns only completed tasks", () => {
+			const plugin = createPlugin();
+			plugin.addTask("Active", Quadrant.Q1, null);
+			const t2 = plugin.addTask("Done", Quadrant.Q2, null);
+			plugin.completeTask(t2.id);
+
+			const completed = plugin.getCompletedTasks();
+			expect(completed).toHaveLength(1);
+			expect(completed[0].title).toBe("Done");
+		});
+
+		it("sorts newest completed first", () => {
+			jest.useFakeTimers();
+			const plugin = createPlugin();
+
+			jest.setSystemTime(new Date("2026-01-01T12:00:00Z"));
+			const t1 = plugin.addTask("First done", Quadrant.Q1, null);
+			plugin.completeTask(t1.id);
+
+			jest.setSystemTime(new Date("2026-01-02T12:00:00Z"));
+			const t2 = plugin.addTask("Second done", Quadrant.Q2, null);
+			plugin.completeTask(t2.id);
+
+			const completed = plugin.getCompletedTasks();
+			expect(completed[0].title).toBe("Second done");
+			expect(completed[1].title).toBe("First done");
+
+			jest.useRealTimers();
+		});
+
+		it("returns empty array when no completed tasks", () => {
+			const plugin = createPlugin();
+			plugin.addTask("Active", Quadrant.Q1, null);
+			expect(plugin.getCompletedTasks()).toEqual([]);
+		});
+	});
+
+	describe("getTasksForQuadrant (excludes completed)", () => {
+		it("excludes completed tasks from quadrant results", () => {
+			const plugin = createPlugin();
+			const t1 = plugin.addTask("Active", Quadrant.Q1, null);
+			const t2 = plugin.addTask("Completed", Quadrant.Q1, null);
+			plugin.completeTask(t2.id);
+
+			const tasks = plugin.getTasksForQuadrant(Quadrant.Q1);
+			expect(tasks).toHaveLength(1);
+			expect(tasks[0].id).toBe(t1.id);
+		});
+
+		it("still returns active tasks normally", () => {
+			const plugin = createPlugin();
+			plugin.addTask("A", Quadrant.Q2, null);
+			plugin.addTask("B", Quadrant.Q2, null);
+
+			expect(plugin.getTasksForQuadrant(Quadrant.Q2)).toHaveLength(2);
+		});
+	});
+
 	describe("loadPluginData", () => {
 		it("initializes with DEFAULT_DATA when loadData returns null", async () => {
 			const plugin = createPlugin();

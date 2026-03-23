@@ -8,7 +8,7 @@
 
 import { EisenhowerMatrixView } from "../src/view";
 import EisenhowerMatrixPlugin from "../src/main";
-import { Quadrant, DEFAULT_DATA, QUADRANT_META, VIEW_TYPE_EISENHOWER } from "../src/types";
+import { Quadrant, DEFAULT_DATA, QUADRANT_META, QUADRANT_COLORS, VIEW_TYPE_EISENHOWER } from "../src/types";
 import { Notice, Platform } from "obsidian";
 
 // ==================== Helpers ====================
@@ -1378,5 +1378,341 @@ describe("add form per quadrant", () => {
 		expect(getTasksInQuadrant(view, Quadrant.Q2)).toHaveLength(0);
 		expect(getTasksInQuadrant(view, Quadrant.Q3)).toHaveLength(1);
 		expect(getTasksInQuadrant(view, Quadrant.Q4)).toHaveLength(0);
+	});
+});
+
+// ==================== O. Task Checkbox Rendering ====================
+
+describe("task checkbox rendering", () => {
+	it("each task has a checkbox element", () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		addTaskAndRender(view, plugin, "Task", Quadrant.Q1);
+
+		const checkbox = view.contentEl.querySelector(".em-task-checkbox");
+		expect(checkbox).toBeTruthy();
+	});
+
+	it("checkbox is before task content in DOM order", () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		addTaskAndRender(view, plugin, "Task", Quadrant.Q1);
+
+		const taskEl = view.contentEl.querySelector(".em-task") as HTMLElement;
+		const children = Array.from(taskEl.children).map((c) => c.className.split(" ")[0]);
+		const checkboxIdx = children.indexOf("em-task-checkbox");
+		const contentIdx = children.indexOf("em-task-content");
+		expect(checkboxIdx).toBeLessThan(contentIdx);
+		expect(checkboxIdx).toBeGreaterThanOrEqual(0);
+	});
+
+	it("checkbox does not have em-checked class for active tasks", () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		addTaskAndRender(view, plugin, "Active", Quadrant.Q1);
+
+		const checkbox = view.contentEl.querySelector(".em-task-checkbox");
+		expect(checkbox!.classList.contains("em-checked")).toBe(false);
+	});
+});
+
+// ==================== P. Completing a Task ====================
+
+describe("completing a task", () => {
+	it("clicking checkbox completes the task", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		addTaskAndRender(view, plugin, "Check me off", Quadrant.Q1);
+
+		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		checkbox.click();
+		await flushPromises();
+
+		expect(plugin.data.tasks[0].completedAt).toBeTruthy();
+	});
+
+	it("completed task disappears from quadrant", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		addTaskAndRender(view, plugin, "Gone soon", Quadrant.Q1);
+
+		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		checkbox.click();
+		await flushPromises();
+
+		expect(getTasksInQuadrant(view, Quadrant.Q1)).toHaveLength(0);
+	});
+
+	it("completed task appears in completed section", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		addTaskAndRender(view, plugin, "Done task", Quadrant.Q2);
+
+		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		checkbox.click();
+		await flushPromises();
+
+		const section = view.contentEl.querySelector(".em-completed-section");
+		expect(section).toBeTruthy();
+		const title = section!.querySelector(".em-completed-task-title");
+		expect(title!.textContent).toBe("Done task");
+	});
+
+	it("saves data after completion", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		addTaskAndRender(view, plugin, "Task", Quadrant.Q1);
+
+		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		checkbox.click();
+		await flushPromises();
+
+		expect(plugin.saveData).toHaveBeenCalled();
+	});
+
+	it("quadrant task count decreases after completion", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		plugin.addTask("Keep", Quadrant.Q1, null);
+		plugin.addTask("Complete", Quadrant.Q1, null);
+		view.renderMatrix();
+
+		const badge = getQuadrantByType(view, Quadrant.Q1).querySelector(".em-task-count");
+		expect(badge!.textContent!.trim()).toBe("2");
+
+		const checkboxes = view.contentEl.querySelectorAll(".em-task-checkbox");
+		(checkboxes[1] as HTMLElement).click();
+		await flushPromises();
+
+		const newBadge = getQuadrantByType(view, Quadrant.Q1).querySelector(".em-task-count");
+		expect(newBadge!.textContent!.trim()).toBe("1");
+	});
+});
+
+// ==================== Q. Completed Section Rendering ====================
+
+describe("completed section rendering", () => {
+	it("section is not rendered when no completed tasks", () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		addTaskAndRender(view, plugin, "Active", Quadrant.Q1);
+
+		expect(view.contentEl.querySelector(".em-completed-section")).toBeNull();
+	});
+
+	it("section renders below the matrix wrapper", () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Done", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+
+		const section = view.contentEl.querySelector(".em-completed-section");
+		const wrapper = view.contentEl.querySelector(".em-matrix-wrapper");
+		expect(section).toBeTruthy();
+		// Section should come after wrapper in DOM
+		const children = Array.from(view.contentEl.children);
+		expect(children.indexOf(section as Element)).toBeGreaterThan(children.indexOf(wrapper as Element));
+	});
+
+	it("header shows correct completed count", () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const t1 = plugin.addTask("Done 1", Quadrant.Q1, null);
+		const t2 = plugin.addTask("Done 2", Quadrant.Q2, null);
+		plugin.completeTask(t1.id);
+		plugin.completeTask(t2.id);
+		view.renderMatrix();
+
+		const header = view.contentEl.querySelector(".em-completed-header");
+		expect(header!.textContent).toContain("2");
+	});
+
+	it("list is collapsed by default", () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Done", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+
+		const list = view.contentEl.querySelector(".em-completed-list");
+		expect(list!.classList.contains("em-hidden")).toBe(true);
+	});
+
+	it("clicking header toggles collapsed state", () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Done", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+
+		const header = view.contentEl.querySelector(".em-completed-header") as HTMLElement;
+		const list = view.contentEl.querySelector(".em-completed-list") as HTMLElement;
+
+		header.click();
+		expect(list.classList.contains("em-hidden")).toBe(false);
+
+		header.click();
+		expect(list.classList.contains("em-hidden")).toBe(true);
+	});
+
+	it("completed task shows strikethrough title", () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Struck", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+
+		const title = view.contentEl.querySelector(".em-completed-task-title");
+		expect(title).toBeTruthy();
+		expect(title!.textContent).toBe("Struck");
+	});
+
+	it("completed task shows quadrant color dot", () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Q1 done", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+
+		const dot = view.contentEl.querySelector(".em-quadrant-dot") as HTMLElement;
+		expect(dot).toBeTruthy();
+		// jsdom normalizes hex to rgb, so check it contains the color value
+		expect(dot.style.background).toBeTruthy();
+	});
+
+	it("completed task shows completion time", () => {
+		jest.useFakeTimers();
+		jest.setSystemTime(new Date("2026-01-01T12:00:00Z"));
+
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Timed", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+
+		const time = view.contentEl.querySelector(".em-completed-task-time");
+		expect(time).toBeTruthy();
+		expect(time!.textContent).toBe("Just now");
+
+		jest.useRealTimers();
+	});
+
+	it("completed task has a checked checkbox", () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Done", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+
+		const checkbox = view.contentEl.querySelector(".em-completed-task .em-task-checkbox");
+		expect(checkbox!.classList.contains("em-checked")).toBe(true);
+	});
+
+	it("completed task has a delete button", () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Delete me", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+
+		const deleteBtn = view.contentEl.querySelector(".em-completed-task .em-task-delete");
+		expect(deleteBtn).toBeTruthy();
+	});
+});
+
+// ==================== R. Uncompleting (Reviving) a Task ====================
+
+describe("uncompleting a task", () => {
+	it("clicking checked checkbox revives the task", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Revive me", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+
+		const checkbox = view.contentEl.querySelector(".em-completed-task .em-task-checkbox") as HTMLElement;
+		checkbox.click();
+		await flushPromises();
+
+		expect(plugin.data.tasks[0].completedAt).toBeNull();
+	});
+
+	it("revived task reappears in its original quadrant", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Come back", Quadrant.Q3, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+
+		const checkbox = view.contentEl.querySelector(".em-completed-task .em-task-checkbox") as HTMLElement;
+		checkbox.click();
+		await flushPromises();
+
+		expect(getTasksInQuadrant(view, Quadrant.Q3)).toHaveLength(1);
+		const title = getQuadrantByType(view, Quadrant.Q3).querySelector(".em-task-title");
+		expect(title!.textContent).toBe("Come back");
+	});
+
+	it("completed section disappears when last task revived", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Only one", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+
+		const checkbox = view.contentEl.querySelector(".em-completed-task .em-task-checkbox") as HTMLElement;
+		checkbox.click();
+		await flushPromises();
+
+		expect(view.contentEl.querySelector(".em-completed-section")).toBeNull();
+	});
+
+	it("saves data after uncomplete", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Task", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+		(plugin.saveData as jest.Mock).mockClear();
+
+		const checkbox = view.contentEl.querySelector(".em-completed-task .em-task-checkbox") as HTMLElement;
+		checkbox.click();
+		await flushPromises();
+
+		expect(plugin.saveData).toHaveBeenCalled();
+	});
+});
+
+// ==================== S. Delete from Completed ====================
+
+describe("delete from completed", () => {
+	it("clicking delete in completed section removes the task permanently", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Bye forever", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+
+		const deleteBtn = view.contentEl.querySelector(".em-completed-task .em-task-delete") as HTMLElement;
+		deleteBtn.click();
+		await flushPromises();
+
+		expect(plugin.data.tasks).toHaveLength(0);
+	});
+
+	it("delete from completed shows undo notice", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		const task = plugin.addTask("Undo me", Quadrant.Q1, null);
+		plugin.completeTask(task.id);
+		view.renderMatrix();
+		Notice.clear();
+
+		const deleteBtn = view.contentEl.querySelector(".em-completed-task .em-task-delete") as HTMLElement;
+		deleteBtn.click();
+		await flushPromises();
+
+		expect(Notice.instances).toHaveLength(1);
 	});
 });

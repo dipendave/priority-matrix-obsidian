@@ -33,17 +33,17 @@ Unidirectional data flow: User action → View calls Plugin CRUD → Plugin save
 ### EisenhowerMatrixPlugin (`src/main.ts`)
 - Purpose: Plugin lifecycle, data ownership, task CRUD operations
 - Dependencies: `obsidian` (Plugin, WorkspaceLeaf)
-- Key interfaces: `onload()`, `activateView()`, `onExternalSettingsChange()`, `addTask()`, `editTask()`, `deleteTask()`, `restoreTask()`, `moveTask()`, `getTasksForQuadrant()`
+- Key interfaces: `onload()`, `activateView()`, `onExternalSettingsChange()`, `addTask()`, `editTask()`, `deleteTask()`, `restoreTask()`, `moveTask()`, `completeTask()`, `uncompleteTask()`, `getTasksForQuadrant()`, `getCompletedTasks()`
 
 ### EisenhowerMatrixView (`src/view.ts`)
 - Purpose: Renders the 2x2 matrix UI, handles all user interactions
 - Dependencies: `obsidian` (ItemView), Plugin instance, Types
-- Key interfaces: `renderMatrix()`, desktop drag (HTML5 API), mobile touch drag (250ms long-press), inline add/delete/edit forms, delete undo toast (5s Notice with restore)
-- Exported utilities: `formatDueDate(dateStr)`, `isDueDatePast(dateStr)` — extracted for testability
+- Key interfaces: `renderMatrix()`, desktop drag (HTML5 API), mobile touch drag (250ms long-press), inline add/delete/edit forms, delete undo toast (5s Notice with restore), task completion checkbox, collapsible completed section
+- Exported utilities: `formatDueDate(dateStr)`, `isDueDatePast(dateStr)`, `formatCompletedDate(isoStr)` — extracted for testability
 
 ### Types (`src/types.ts`)
 - Purpose: Shared data model and constants
-- Key interfaces: `Task`, `EisenhowerMatrixData`, `Quadrant` enum, `QUADRANT_META`
+- Key interfaces: `Task` (with optional `completedAt`), `EisenhowerMatrixData`, `Quadrant` enum, `QUADRANT_META`, `QUADRANT_COLORS`
 
 ## Data Flow
 1. Plugin loads `data.json` on startup → flat `Task[]` array
@@ -52,6 +52,8 @@ Unidirectional data flow: User action → View calls Plugin CRUD → Plugin save
 4. Plugin updates in-memory data and calls `saveData()` to persist
 5. View calls `renderMatrix()` to re-render from updated data
 6. Obsidian Sync updates `data.json` externally → `onExternalSettingsChange()` reloads data and re-renders all open views
+7. User checks task checkbox → `completeTask()` sets `completedAt` timestamp → task moves from quadrant to collapsible "Completed" section
+8. User clicks checked checkbox in completed section → `uncompleteTask()` clears `completedAt` → task returns to original quadrant
 
 ## Key Design Decisions
 
@@ -66,7 +68,10 @@ Unidirectional data flow: User action → View calls Plugin CRUD → Plugin save
 - **Progressive disclosure** — drag handles faintly visible (0.15 opacity), brighten on hover; mobile empty quadrants collapsed to header-only; one-time mobile drag onboarding notice; new task highlight animation (600ms fade)
 - **Dual-axis labels** — desktop uses CSS grid on `.em-matrix-wrapper` (`grid-template-columns: auto 1fr; grid-template-rows: auto 1fr`) to place urgency (horizontal) and importance (vertical, `writing-mode: vertical-lr; rotate(180deg)`) axis labels. Mobile reverts to flex column and hides the importance label.
 
+- **Task completion** — checkbox per task, collapsible "Completed" bin below grid. `completedAt` timestamp on Task (falsy = active). Completed tasks show origin quadrant as color dot, relative time, strikethrough. Revive by clicking checked checkbox. Delete from completed with undo notice.
+
 ## Recent Changes
+- Task completion (2026-03-22): checkbox on tasks, collapsible completed section, revive/delete from bin, `formatCompletedDate()` utility, 42 new tests
 - Sync support (2026-03-02): added `onExternalSettingsChange()` hook — reloads data and re-renders when Obsidian Sync updates `data.json` externally
 - Design eval refinements (2026-02-17): stronger overflow fade (0.06 to 0.15), dark mode task highlight animation, SVG delete icon (setIcon), stronger edit hover affordance
 - Design evaluation polish (2026-02-17): conditional overflow fade (only when content overflows), inverted Add/Cancel button weight hierarchy, edit discoverability in empty state text, one-time mobile drag onboarding notice, new task highlight animation on creation

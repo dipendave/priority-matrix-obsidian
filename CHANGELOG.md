@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-03-22 12:00] - Task Completion Feature
+
+**Added:**
+- Checkbox on each task to mark it as completed
+- Collapsible "Completed (N)" section below the matrix grid
+- Completed tasks show: strikethrough title, quadrant color dot, relative completion time
+- Click checked checkbox to revive (uncomplete) a task back to its original quadrant
+- Delete button on completed tasks for permanent removal
+- `formatCompletedDate()` utility for relative time display ("Just now", "X min ago", etc.)
+- 42 new tests (12 plugin unit tests, 7 utility tests, 23 view integration tests)
+
+**Data model:**
+- Added `completedAt?: string | null` to `Task` interface (no migration needed)
+- Added `QUADRANT_COLORS` constant for quadrant-origin dots
+
+**Files:**
+- `src/types.ts` — `completedAt` field, `QUADRANT_COLORS`
+- `src/main.ts` — `completeTask()`, `uncompleteTask()`, `getCompletedTasks()`, updated `getTasksForQuadrant()`
+- `src/view.ts` — checkbox rendering, completion handlers, completed section, `formatCompletedDate()`
+- `styles.css` — checkbox, completed section, quadrant dot, mobile responsive styles
+- `tests/main.test.ts`, `tests/view.test.ts`, `tests/view-integration.test.ts`
+
+---
+
 ## [2026-03-02 21:00] - Comprehensive View Integration Tests
 
 **Added:**
