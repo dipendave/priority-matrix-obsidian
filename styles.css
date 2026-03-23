@@ -696,6 +696,10 @@
 		opacity: 0.3;
 	}
 
+	.em-completed-section {
+		padding-bottom: 60px;
+	}
+
 	.em-add-form {
 		padding: 6px;
 	}

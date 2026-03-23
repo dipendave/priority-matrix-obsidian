@@ -1,7 +1,7 @@
 {
 	"id": "eisenhower-matrix",
 	"name": "Eisenhower Matrix",
-	"version": "1.0.12",
+	"version": "1.1.0",
 	"minAppVersion": "0.15.0",
 	"description": "A visual Eisenhower Matrix for prioritizing tasks by urgency and importance.",
 	"author": "Dipen",
