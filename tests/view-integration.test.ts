@@ -1470,6 +1470,56 @@ describe("completing a task", () => {
 		expect(plugin.saveData).toHaveBeenCalled();
 	});
 
+	it("shows notice with undo on completion", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		addTaskAndRender(view, plugin, "Notice test", Quadrant.Q1);
+
+		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		checkbox.click();
+		await flushPromises();
+
+		expect(Notice.instances).toHaveLength(1);
+		const notice = Notice.instances[0];
+		expect(notice.duration).toBe(5000);
+		const fragment = notice.message as DocumentFragment;
+		const undoLink = fragment.querySelector(".em-undo-link");
+		expect(undoLink).toBeTruthy();
+		expect(undoLink!.textContent).toBe("Undo");
+	});
+
+	it("undo on completion notice restores the task", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		addTaskAndRender(view, plugin, "Undo complete", Quadrant.Q1);
+
+		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		checkbox.click();
+		await flushPromises();
+		expect(plugin.data.tasks[0].completedAt).toBeTruthy();
+
+		const fragment = Notice.instances[0].message as DocumentFragment;
+		const undoLink = fragment.querySelector(".em-undo-link") as HTMLElement;
+		undoLink.click();
+		await flushPromises();
+
+		expect(plugin.data.tasks[0].completedAt).toBeNull();
+		expect(getTasksInQuadrant(view, Quadrant.Q1)).toHaveLength(1);
+	});
+
+	it("auto-expands completed section on first completion", async () => {
+		const plugin = createPlugin();
+		const view = createView(plugin);
+		addTaskAndRender(view, plugin, "First complete", Quadrant.Q1);
+
+		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		checkbox.click();
+		await flushPromises();
+
+		const list = view.contentEl.querySelector(".em-completed-list");
+		expect(list!.classList.contains("em-hidden")).toBe(false);
+	});
+
 	it("quadrant task count decreases after completion", async () => {
 		const plugin = createPlugin();
 		const view = createView(plugin);

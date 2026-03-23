@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-eisenhower-matrix",
-	"version": "1.0.11",
+	"version": "1.0.12",
 	"description": "Eisenhower Matrix plugin for Obsidian",
 	"main": "main.js",
 	"scripts": {

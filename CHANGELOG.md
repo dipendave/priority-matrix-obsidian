@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-03-22 13:00] - Design Evaluation Polish
+
+**Changed:**
+- Completion notice with undo: checking a task now shows "Task completed. Undo" notice (same pattern as delete)
+- Checkbox color: replaced `var(--interactive-accent)` with neutral green (`#22c55e`) to avoid clashing with quadrant colors
+- Checkbox border: increased contrast from `var(--text-muted)` to `var(--background-modifier-border)`, green hover hint
+- Auto-expand completed section on first completion (session-level, respects toggle after that)
+- Updated Playwright fixture with checkbox elements on all tasks and a 3-item completed section
+
+**Files:**
+- `src/view.ts` — completion notice, auto-expand logic, session toggle tracking
+- `styles.css` — green checkbox color, border contrast
+- `tests/fixtures/matrix.html` — checkboxes + completed section in fixture
+- `tests/view-integration.test.ts` — 3 new tests (notice, undo, auto-expand)
+
+---
+
 ## [2026-03-22 12:00] - Task Completion Feature
 
 **Added:**

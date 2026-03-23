@@ -68,7 +68,7 @@ Unidirectional data flow: User action → View calls Plugin CRUD → Plugin save
 - **Progressive disclosure** — drag handles faintly visible (0.15 opacity), brighten on hover; mobile empty quadrants collapsed to header-only; one-time mobile drag onboarding notice; new task highlight animation (600ms fade)
 - **Dual-axis labels** — desktop uses CSS grid on `.em-matrix-wrapper` (`grid-template-columns: auto 1fr; grid-template-rows: auto 1fr`) to place urgency (horizontal) and importance (vertical, `writing-mode: vertical-lr; rotate(180deg)`) axis labels. Mobile reverts to flex column and hides the importance label.
 
-- **Task completion** — checkbox per task, collapsible "Completed" bin below grid. `completedAt` timestamp on Task (falsy = active). Completed tasks show origin quadrant as color dot, relative time, strikethrough. Revive by clicking checked checkbox. Delete from completed with undo notice.
+- **Task completion** — checkbox per task (green `#22c55e`, neutral to quadrant colors), collapsible "Completed" bin below grid. `completedAt` timestamp on Task (falsy = active). Completed tasks show origin quadrant as color dot, relative time, strikethrough. Completion shows 5s undo notice. Section auto-expands on first completion, respects toggle after. Revive by clicking checked checkbox. Delete from completed with undo notice.
 
 ## Recent Changes
 - Task completion (2026-03-22): checkbox on tasks, collapsible completed section, revive/delete from bin, `formatCompletedDate()` utility, 42 new tests

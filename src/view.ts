@@ -16,6 +16,7 @@ export class EisenhowerMatrixView extends ItemView {
 	private touchClone: HTMLElement | null = null;
 	private touchTimeout: number | null = null;
 	private draggedEl: HTMLElement | null = null;
+	private completedSectionExpanded = false;
 
 	constructor(leaf: WorkspaceLeaf, plugin: EisenhowerMatrixPlugin) {
 		super(leaf);
@@ -311,9 +312,31 @@ export class EisenhowerMatrixView extends ItemView {
 	}
 
 	private async handleCompleteTask(taskId: string): Promise<void> {
+		const savedTask = this.plugin.data.tasks.find((t) => t.id === taskId);
+		if (!savedTask) return;
+		const taskCopy = { ...savedTask };
+
+		// Auto-expand completed section when first task is completed
+		const hadCompletedBefore = this.plugin.getCompletedTasks().length > 0;
 		this.plugin.completeTask(taskId);
+		if (!hadCompletedBefore) {
+			this.completedSectionExpanded = true;
+		}
 		await this.plugin.savePluginData();
 		this.renderMatrix();
+
+		const fragment = document.createDocumentFragment();
+		fragment.appendText("Task completed. ");
+		const undoLink = fragment.createEl("a", { text: "Undo", cls: "em-undo-link" });
+
+		const notice = new Notice(fragment, 5000);
+
+		undoLink.addEventListener("click", () => {
+			this.plugin.uncompleteTask(taskCopy.id);
+			void this.plugin.savePluginData();
+			this.renderMatrix();
+			notice.hide();
+		});
 	}
 
 	private async handleUncompleteTask(taskId: string): Promise<void> {
@@ -400,8 +423,14 @@ export class EisenhowerMatrixView extends ItemView {
 		chevron.textContent = "\u25B6";
 		header.createSpan({ text: `Completed (${tasks.length})` });
 
-		// List (collapsed by default)
-		const list = section.createDiv({ cls: "em-completed-list em-hidden" });
+		// List — expanded if user toggled it open, or collapsed by default
+		const isExpanded = this.completedSectionExpanded;
+		const list = section.createDiv({
+			cls: isExpanded ? "em-completed-list" : "em-completed-list em-hidden",
+		});
+		if (isExpanded) {
+			chevron.addClass("em-completed-chevron-open");
+		}
 
 		for (const task of tasks) {
 			this.renderCompletedTask(list, task);
@@ -411,6 +440,7 @@ export class EisenhowerMatrixView extends ItemView {
 			const isHidden = list.hasClass("em-hidden");
 			list.toggleClass("em-hidden", !isHidden);
 			chevron.toggleClass("em-completed-chevron-open", isHidden);
+			this.completedSectionExpanded = isHidden;
 		});
 	}
 
