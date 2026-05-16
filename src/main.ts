@@ -1,25 +1,25 @@
 import { Plugin, WorkspaceLeaf } from "obsidian";
-import { EisenhowerMatrixView } from "./view";
+import { PriorityMatrixView } from "./view";
 import {
-	EisenhowerMatrixData,
+	PriorityMatrixData,
 	DEFAULT_DATA,
-	VIEW_TYPE_EISENHOWER,
+	VIEW_TYPE_PRIORITY,
 	Task,
 	Quadrant,
 } from "./types";
 
-export default class EisenhowerMatrixPlugin extends Plugin {
-	data: EisenhowerMatrixData = DEFAULT_DATA;
+export default class PriorityMatrixPlugin extends Plugin {
+	data: PriorityMatrixData = DEFAULT_DATA;
 
 	async onload(): Promise<void> {
 		await this.loadPluginData();
 
 		this.registerView(
-			VIEW_TYPE_EISENHOWER,
-			(leaf: WorkspaceLeaf) => new EisenhowerMatrixView(leaf, this)
+			VIEW_TYPE_PRIORITY,
+			(leaf: WorkspaceLeaf) => new PriorityMatrixView(leaf, this)
 		);
 
-		this.addRibbonIcon("layout-grid", "Eisenhower matrix", () => {
+		this.addRibbonIcon("layout-grid", "Priority matrix", () => {
 			void this.activateView();
 		});
 
@@ -34,7 +34,7 @@ export default class EisenhowerMatrixPlugin extends Plugin {
 
 	async activateView(): Promise<void> {
 		const { workspace } = this.app;
-		const leaves = workspace.getLeavesOfType(VIEW_TYPE_EISENHOWER);
+		const leaves = workspace.getLeavesOfType(VIEW_TYPE_PRIORITY);
 
 		if (leaves.length > 0) {
 			await workspace.revealLeaf(leaves[0]);
@@ -43,7 +43,7 @@ export default class EisenhowerMatrixPlugin extends Plugin {
 
 		const leaf = workspace.getLeaf(false);
 		await leaf.setViewState({
-			type: VIEW_TYPE_EISENHOWER,
+			type: VIEW_TYPE_PRIORITY,
 			active: true,
 		});
 		await workspace.revealLeaf(leaf);
@@ -63,10 +63,10 @@ export default class EisenhowerMatrixPlugin extends Plugin {
 
 	async onExternalSettingsChange(): Promise<void> {
 		await this.loadPluginData();
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_EISENHOWER);
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_PRIORITY);
 		for (const leaf of leaves) {
 			const view = leaf.view;
-			if (view instanceof EisenhowerMatrixView) {
+			if (view instanceof PriorityMatrixView) {
 				view.renderMatrix();
 			}
 		}

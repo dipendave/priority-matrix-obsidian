@@ -134,11 +134,11 @@ describe("Promise handling", () => {
 
 describe("Command registration", () => {
 	test("command ID does not include plugin ID", () => {
-		// Plugin ID is "eisenhower-matrix"
+		// Plugin ID is "priority-matrix"
 		const commandIdMatch = mainTs.match(/id:\s*"([^"]+)"/);
 		expect(commandIdMatch).not.toBeNull();
 		const commandId = commandIdMatch![1];
-		expect(commandId).not.toContain("eisenhower");
+		expect(commandId).not.toContain("priority");
 		expect(commandId).not.toContain("matrix");
 	});
 
@@ -146,8 +146,8 @@ describe("Command registration", () => {
 		const commandNameMatch = mainTs.match(/name:\s*"([^"]+)"/);
 		expect(commandNameMatch).not.toBeNull();
 		const commandName = commandNameMatch![1];
-		// Should not contain "Eisenhower" or "Matrix" (case-insensitive)
-		expect(commandName.toLowerCase()).not.toContain("eisenhower");
+		// Should not contain "Priority" or "Matrix" (case-insensitive)
+		expect(commandName.toLowerCase()).not.toContain("priority");
 	});
 });
 
@@ -168,22 +168,22 @@ describe("Sentence case UI text", () => {
 		expect(match).not.toBeNull();
 		const text = match![1];
 		// First letter uppercase, rest should not be Title Case
-		// "Eisenhower matrix" is correct (proper noun + lowercase)
-		expect(text).toBe("Eisenhower matrix");
+		// "Priority matrix" is correct sentence case
+		expect(text).toBe("Priority matrix");
 	});
 
 	test("ribbon icon tooltip uses sentence case", () => {
 		const match = mainTs.match(/addRibbonIcon\([^,]+,\s*"([^"]+)"/);
 		expect(match).not.toBeNull();
 		const text = match![1];
-		expect(text).toBe("Eisenhower matrix");
+		expect(text).toBe("Priority matrix");
 	});
 
 	test("command name uses sentence case", () => {
 		const match = mainTs.match(/name:\s*"([^"]+)"/);
 		expect(match).not.toBeNull();
 		const text = match![1];
-		// "Open matrix" — not "Open Matrix" or "Open Eisenhower Matrix"
+		// "Open matrix" — not "Open Matrix" or "Open Priority Matrix"
 		expect(text).toBe("Open matrix");
 	});
 });

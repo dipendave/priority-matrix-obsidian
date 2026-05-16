@@ -1,9 +1,9 @@
 import { Quadrant, DEFAULT_DATA } from "../src/types";
-import EisenhowerMatrixPlugin from "../src/main";
+import PriorityMatrixPlugin from "../src/main";
 
 // Helper to create a plugin instance with mocked Obsidian internals
-function createPlugin(): EisenhowerMatrixPlugin {
-	const plugin = new EisenhowerMatrixPlugin(
+function createPlugin(): PriorityMatrixPlugin {
+	const plugin = new PriorityMatrixPlugin(
 		{} as any, // app
 		{} as any  // manifest
 	);
@@ -11,7 +11,7 @@ function createPlugin(): EisenhowerMatrixPlugin {
 	return plugin;
 }
 
-describe("EisenhowerMatrixPlugin", () => {
+describe("PriorityMatrixPlugin", () => {
 	describe("addTask", () => {
 		it("adds a task to the data array", () => {
 			const plugin = createPlugin();
@@ -294,7 +294,7 @@ describe("EisenhowerMatrixPlugin", () => {
 
 			const mockRenderMatrix = jest.fn();
 			const mockView = Object.create(
-				(await import("../src/view")).EisenhowerMatrixView.prototype
+				(await import("../src/view")).PriorityMatrixView.prototype
 			);
 			mockView.renderMatrix = mockRenderMatrix;
 
@@ -327,7 +327,7 @@ describe("EisenhowerMatrixPlugin", () => {
 			const plugin = createPlugin();
 			plugin.loadData = jest.fn().mockResolvedValue({ tasks: [], version: 1 });
 
-			const otherView = { renderMatrix: jest.fn() }; // Not an instance of EisenhowerMatrixView
+			const otherView = { renderMatrix: jest.fn() }; // Not an instance of PriorityMatrixView
 			plugin.app = {
 				workspace: {
 					getLeavesOfType: () => [{ view: otherView }],

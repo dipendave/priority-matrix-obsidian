@@ -2,7 +2,7 @@ import {
 	Quadrant,
 	QUADRANT_META,
 	DEFAULT_DATA,
-	VIEW_TYPE_EISENHOWER,
+	VIEW_TYPE_PRIORITY,
 } from "../src/types";
 
 describe("QUADRANT_META", () => {
@@ -41,9 +41,9 @@ describe("DEFAULT_DATA", () => {
 	});
 });
 
-describe("VIEW_TYPE_EISENHOWER", () => {
+describe("VIEW_TYPE_PRIORITY", () => {
 	it("is a non-empty string", () => {
-		expect(typeof VIEW_TYPE_EISENHOWER).toBe("string");
-		expect(VIEW_TYPE_EISENHOWER.length).toBeGreaterThan(0);
+		expect(typeof VIEW_TYPE_PRIORITY).toBe("string");
+		expect(VIEW_TYPE_PRIORITY.length).toBeGreaterThan(0);
 	});
 });

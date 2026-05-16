@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-05-16 12:00] - 2.0.0 — Rebrand to Priority Matrix
+
+**Why:** Another developer (`oamadorr/eisenhower-matrix-obsidian`) registered the `eisenhower-matrix` plugin ID first under Obsidian's new self-service submission flow after our PR #10188 to `obsidian-releases` was invalidated by that repo disabling PRs. Rebranded to avoid the conflict and clear the path to publishing.
+
+**Changed:**
+- `manifest.json` id `eisenhower-matrix` → `priority-matrix`
+- `manifest.json` name "Eisenhower Matrix" → "Priority Matrix" (description still mentions Eisenhower Matrix as the underlying method)
+- `package.json` name `obsidian-eisenhower-matrix` → `obsidian-priority-matrix`
+- All CSS class prefixes `em-*` → `pm-*` (124 in styles.css, 90 in view.ts, 4 in types.ts, 323 in test fixture, ~200 across tests)
+- TypeScript identifiers: `EisenhowerMatrixPlugin/View/Data` → `PriorityMatrixPlugin/View/Data`, `VIEW_TYPE_EISENHOWER` → `VIEW_TYPE_PRIORITY`
+- User-facing strings: `getDisplayText()` and ribbon tooltip now return "Priority matrix"
+- README rewritten with new name and description
+- Version bumped 1.1.0 → 2.0.0 (id change = new plugin from Obsidian's perspective)
+- `.env.local` vault sync paths updated to `priority-matrix` folder (users must rename their Obsidian plugin folder)
+
+**Verified:**
+- 208 Jest tests pass
+- 48 Playwright tests pass (12 skipped — desktop-only)
+- Build clean, screenshots regenerated
+
+**Files:**
+- `manifest.json`, `package.json`, `package-lock.json`, `versions.json`
+- `src/types.ts`, `src/main.ts`, `src/view.ts`, `styles.css`
+- `tests/__mocks__/obsidian.ts` (none needed — sdk shim), `tests/main.test.ts`, `tests/view.test.ts`, `tests/view-integration.test.ts`, `tests/types.test.ts`, `tests/community-compliance.test.ts`, `tests/mobile.spec.ts`, `tests/fixtures/matrix.html`
+- `README.md`, `.env.local`
+- `screenshots/*.png` (regenerated)
+
+---
+
 ## [2026-03-22 14:00] - Auto-release on Every Push
 
 **Changed:**

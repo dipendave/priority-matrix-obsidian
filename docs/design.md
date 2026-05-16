@@ -1,7 +1,9 @@
 # Project Design
 
 ## Overview
-An Obsidian community plugin that provides an interactive Eisenhower Matrix for task prioritization. Tasks are organized into four quadrants based on urgency and importance, with drag-and-drop, due dates, and mobile-responsive design.
+**Priority Matrix** — an Obsidian community plugin that provides an interactive prioritization matrix based on the Eisenhower Matrix method. Tasks are organized into four quadrants based on urgency and importance, with drag-and-drop, due dates, completion tracking, and mobile-responsive design.
+
+Plugin id: `priority-matrix`. CSS class prefix: `pm-*`. Renamed from "Eisenhower Matrix" in 2.0.0 — see CHANGELOG entry [2026-05-16].
 
 ## Architecture
 ```

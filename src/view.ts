@@ -1,16 +1,16 @@
 import { ItemView, WorkspaceLeaf, setIcon, Notice, Platform } from "obsidian";
 import {
-	VIEW_TYPE_EISENHOWER,
+	VIEW_TYPE_PRIORITY,
 	Quadrant,
 	QUADRANT_META,
 	QUADRANT_COLORS,
 	QuadrantMeta,
 	Task,
 } from "./types";
-import EisenhowerMatrixPlugin from "./main";
+import PriorityMatrixPlugin from "./main";
 
-export class EisenhowerMatrixView extends ItemView {
-	plugin: EisenhowerMatrixPlugin;
+export class PriorityMatrixView extends ItemView {
+	plugin: PriorityMatrixPlugin;
 
 	private draggedTaskId: string | null = null;
 	private touchClone: HTMLElement | null = null;
@@ -18,17 +18,17 @@ export class EisenhowerMatrixView extends ItemView {
 	private draggedEl: HTMLElement | null = null;
 	private completedSectionExpanded = false;
 
-	constructor(leaf: WorkspaceLeaf, plugin: EisenhowerMatrixPlugin) {
+	constructor(leaf: WorkspaceLeaf, plugin: PriorityMatrixPlugin) {
 		super(leaf);
 		this.plugin = plugin;
 	}
 
 	getViewType(): string {
-		return VIEW_TYPE_EISENHOWER;
+		return VIEW_TYPE_PRIORITY;
 	}
 
 	getDisplayText(): string {
-		return "Eisenhower matrix";
+		return "Priority matrix";
 	}
 
 	getIcon(): string {
@@ -55,22 +55,22 @@ export class EisenhowerMatrixView extends ItemView {
 	renderMatrix(): void {
 		const container = this.contentEl;
 		container.empty();
-		container.addClass("em-container");
+		container.addClass("pm-container");
 
-		const matrixWrapper = container.createDiv({ cls: "em-matrix-wrapper" });
+		const matrixWrapper = container.createDiv({ cls: "pm-matrix-wrapper" });
 
 		// Urgency axis label
-		const urgencyLabel = matrixWrapper.createDiv({ cls: "em-axis-label em-axis-urgency" });
-		urgencyLabel.createSpan({ text: "URGENT", cls: "em-axis-left" });
-		urgencyLabel.createSpan({ text: "NOT URGENT", cls: "em-axis-right" });
+		const urgencyLabel = matrixWrapper.createDiv({ cls: "pm-axis-label pm-axis-urgency" });
+		urgencyLabel.createSpan({ text: "URGENT", cls: "pm-axis-left" });
+		urgencyLabel.createSpan({ text: "NOT URGENT", cls: "pm-axis-right" });
 
 		// Importance axis label (vertical)
-		const importanceLabel = matrixWrapper.createDiv({ cls: "em-axis-label em-axis-importance" });
-		importanceLabel.createSpan({ text: "NOT IMPORTANT", cls: "em-axis-bottom" });
-		importanceLabel.createSpan({ text: "IMPORTANT", cls: "em-axis-top" });
+		const importanceLabel = matrixWrapper.createDiv({ cls: "pm-axis-label pm-axis-importance" });
+		importanceLabel.createSpan({ text: "NOT IMPORTANT", cls: "pm-axis-bottom" });
+		importanceLabel.createSpan({ text: "IMPORTANT", cls: "pm-axis-top" });
 
 		// Grid
-		const grid = matrixWrapper.createDiv({ cls: "em-grid" });
+		const grid = matrixWrapper.createDiv({ cls: "pm-grid" });
 
 		// Render quadrants: Q1 (top-left), Q2 (top-right), Q3 (bottom-left), Q4 (bottom-right)
 		const quadrantOrder = [Quadrant.Q1, Quadrant.Q2, Quadrant.Q3, Quadrant.Q4];
@@ -88,38 +88,38 @@ export class EisenhowerMatrixView extends ItemView {
 	}
 
 	private updateOverflowIndicators(): void {
-		this.contentEl.querySelectorAll(".em-task-list").forEach((el) => {
+		this.contentEl.querySelectorAll(".pm-task-list").forEach((el) => {
 			const list = el as HTMLElement;
-			list.toggleClass("em-has-overflow", list.scrollHeight > list.clientHeight);
+			list.toggleClass("pm-has-overflow", list.scrollHeight > list.clientHeight);
 		});
 	}
 
 	private renderQuadrant(gridEl: HTMLElement, meta: QuadrantMeta): void {
 		const quadrantEl = gridEl.createDiv({
-			cls: `em-quadrant ${meta.colorClass}`,
+			cls: `pm-quadrant ${meta.colorClass}`,
 			attr: { "data-quadrant": meta.id },
 		});
 
 		const tasks = this.plugin.getTasksForQuadrant(meta.id);
 
 		// Header
-		const headerEl = quadrantEl.createDiv({ cls: "em-quadrant-header" });
-		const titleGroup = headerEl.createDiv({ cls: "em-quadrant-title-group" });
-		const h3 = titleGroup.createEl("h3", { text: meta.action, cls: "em-quadrant-action" });
+		const headerEl = quadrantEl.createDiv({ cls: "pm-quadrant-header" });
+		const titleGroup = headerEl.createDiv({ cls: "pm-quadrant-title-group" });
+		const h3 = titleGroup.createEl("h3", { text: meta.action, cls: "pm-quadrant-action" });
 		if (tasks.length > 0) {
-			h3.createSpan({ text: ` ${tasks.length}`, cls: "em-task-count" });
+			h3.createSpan({ text: ` ${tasks.length}`, cls: "pm-task-count" });
 		}
 
 		const addBtn = headerEl.createEl("button", {
-			cls: "em-add-btn",
+			cls: "pm-add-btn",
 			attr: { "aria-label": `Add task to ${meta.action}` },
 		});
 		setIcon(addBtn, "plus");
 
 		// Task list
-		const listEl = quadrantEl.createDiv({ cls: "em-task-list" });
+		const listEl = quadrantEl.createDiv({ cls: "pm-task-list" });
 		if (tasks.length === 0) {
-			quadrantEl.addClass("em-quadrant-empty");
+			quadrantEl.addClass("pm-quadrant-empty");
 			this.renderEmptyState(listEl);
 		} else {
 			for (const task of tasks) {
@@ -128,14 +128,14 @@ export class EisenhowerMatrixView extends ItemView {
 		}
 
 		// Add form (hidden by default)
-		const formEl = quadrantEl.createDiv({ cls: "em-add-form em-hidden" });
+		const formEl = quadrantEl.createDiv({ cls: "pm-add-form pm-hidden" });
 		this.renderAddTaskForm(formEl, meta.id);
 
 		addBtn.addEventListener("click", () => {
-			const isHidden = formEl.hasClass("em-hidden");
-			formEl.toggleClass("em-hidden", !isHidden);
+			const isHidden = formEl.hasClass("pm-hidden");
+			formEl.toggleClass("pm-hidden", !isHidden);
 			if (isHidden) {
-				const input = formEl.querySelector(".em-task-input") as HTMLInputElement;
+				const input = formEl.querySelector(".pm-task-input") as HTMLInputElement;
 				input?.focus();
 				// Scroll form into view after keyboard opens
 				setTimeout(() => {
@@ -150,7 +150,7 @@ export class EisenhowerMatrixView extends ItemView {
 
 	private renderTask(listEl: HTMLElement, task: Task): void {
 		const taskEl = listEl.createDiv({
-			cls: "em-task",
+			cls: "pm-task",
 			attr: {
 				"data-task-id": task.id,
 				draggable: "true",
@@ -158,24 +158,24 @@ export class EisenhowerMatrixView extends ItemView {
 		});
 
 		// Drag handle
-		const dragHandle = taskEl.createDiv({ cls: "em-task-drag-handle" });
+		const dragHandle = taskEl.createDiv({ cls: "pm-task-drag-handle" });
 		dragHandle.textContent = "\u2630";
 
 		// Completion checkbox
-		const checkbox = taskEl.createDiv({ cls: "em-task-checkbox" });
+		const checkbox = taskEl.createDiv({ cls: "pm-task-checkbox" });
 		checkbox.addEventListener("click", (e) => {
 			e.stopPropagation();
 			void this.handleCompleteTask(task.id);
 		});
 
 		// Content
-		const contentEl = taskEl.createDiv({ cls: "em-task-content" });
-		contentEl.createDiv({ cls: "em-task-title", text: task.title });
+		const contentEl = taskEl.createDiv({ cls: "pm-task-content" });
+		contentEl.createDiv({ cls: "pm-task-title", text: task.title });
 
 		if (task.dueDate) {
-			const dueDateEl = contentEl.createDiv({ cls: "em-task-due" });
+			const dueDateEl = contentEl.createDiv({ cls: "pm-task-due" });
 			if (isDueDatePast(task.dueDate)) {
-				dueDateEl.addClass("em-overdue");
+				dueDateEl.addClass("pm-overdue");
 			}
 			dueDateEl.setText(formatDueDate(task.dueDate));
 		}
@@ -188,7 +188,7 @@ export class EisenhowerMatrixView extends ItemView {
 
 		// Delete button
 		const deleteBtn = taskEl.createEl("button", {
-			cls: "em-task-delete",
+			cls: "pm-task-delete",
 			attr: { "aria-label": "Delete task" },
 		});
 		deleteBtn.textContent = "\u00d7";
@@ -205,42 +205,42 @@ export class EisenhowerMatrixView extends ItemView {
 
 	private renderAddTaskForm(formEl: HTMLElement, quadrant: Quadrant): void {
 		const inputEl = formEl.createEl("input", {
-			cls: "em-task-input",
+			cls: "pm-task-input",
 			attr: {
 				type: "text",
 				placeholder: "Task title...",
 			},
 		});
 
-		const dateRow = formEl.createDiv({ cls: "em-form-date-row" });
-		dateRow.createEl("label", { text: "Due:", cls: "em-date-label" });
+		const dateRow = formEl.createDiv({ cls: "pm-form-date-row" });
+		dateRow.createEl("label", { text: "Due:", cls: "pm-date-label" });
 		const dateInput = dateRow.createEl("input", {
-			cls: "em-date-input",
+			cls: "pm-date-input",
 			attr: { type: "date" },
 		});
 
-		const btnRow = formEl.createDiv({ cls: "em-form-btn-row" });
+		const btnRow = formEl.createDiv({ cls: "pm-form-btn-row" });
 		const submitBtn = btnRow.createEl("button", {
 			text: "Add",
-			cls: "em-form-submit",
+			cls: "pm-form-submit",
 		});
 		const cancelBtn = btnRow.createEl("button", {
 			text: "Cancel",
-			cls: "em-form-cancel",
+			cls: "pm-form-cancel",
 		});
 
 		const submit = () => {
 			const title = inputEl.value.trim();
 			if (!title) {
-				inputEl.addClass("em-input-error");
+				inputEl.addClass("pm-input-error");
 				return;
 			}
 			const dueDate = dateInput.value || null;
 			void this.handleAddTask(quadrant, title, dueDate);
 			inputEl.value = "";
 			dateInput.value = "";
-			inputEl.removeClass("em-input-error");
-			formEl.addClass("em-hidden");
+			inputEl.removeClass("pm-input-error");
+			formEl.addClass("pm-hidden");
 		};
 
 		submitBtn.addEventListener("click", submit);
@@ -249,12 +249,12 @@ export class EisenhowerMatrixView extends ItemView {
 			if (e.key === "Enter") {
 				submit();
 			} else if (e.key === "Escape") {
-				formEl.addClass("em-hidden");
+				formEl.addClass("pm-hidden");
 			}
 		});
 
 		inputEl.addEventListener("input", () => {
-			inputEl.removeClass("em-input-error");
+			inputEl.removeClass("pm-input-error");
 		});
 
 		// Scroll form into view when keyboard opens on mobile
@@ -267,13 +267,13 @@ export class EisenhowerMatrixView extends ItemView {
 		cancelBtn.addEventListener("click", () => {
 			inputEl.value = "";
 			dateInput.value = "";
-			inputEl.removeClass("em-input-error");
-			formEl.addClass("em-hidden");
+			inputEl.removeClass("pm-input-error");
+			formEl.addClass("pm-hidden");
 		});
 	}
 
 	private renderEmptyState(listEl: HTMLElement): void {
-		listEl.createDiv({ cls: "em-empty-state", text: "Tap + to add, tap a task to edit" });
+		listEl.createDiv({ cls: "pm-empty-state", text: "Tap + to add, tap a task to edit" });
 	}
 
 	// ==================== TASK ACTIONS ====================
@@ -284,7 +284,7 @@ export class EisenhowerMatrixView extends ItemView {
 		this.renderMatrix();
 		const newTaskEl = this.contentEl.querySelector(`[data-task-id="${newTask.id}"]`);
 		if (newTaskEl) {
-			(newTaskEl as HTMLElement).addClass("em-task-new");
+			(newTaskEl as HTMLElement).addClass("pm-task-new");
 		}
 	}
 
@@ -299,7 +299,7 @@ export class EisenhowerMatrixView extends ItemView {
 
 		const fragment = document.createDocumentFragment();
 		fragment.appendText("Task deleted. ");
-		const undoLink = fragment.createEl("a", { text: "Undo", cls: "em-undo-link" });
+		const undoLink = fragment.createEl("a", { text: "Undo", cls: "pm-undo-link" });
 
 		const notice = new Notice(fragment, 5000);
 
@@ -327,7 +327,7 @@ export class EisenhowerMatrixView extends ItemView {
 
 		const fragment = document.createDocumentFragment();
 		fragment.appendText("Task completed. ");
-		const undoLink = fragment.createEl("a", { text: "Undo", cls: "em-undo-link" });
+		const undoLink = fragment.createEl("a", { text: "Undo", cls: "pm-undo-link" });
 
 		const notice = new Notice(fragment, 5000);
 
@@ -355,30 +355,30 @@ export class EisenhowerMatrixView extends ItemView {
 		// Disable drag while editing
 		taskEl.setAttribute("draggable", "false");
 		taskEl.empty();
-		taskEl.addClass("em-task-editing");
+		taskEl.addClass("pm-task-editing");
 
-		const formEl = taskEl.createDiv({ cls: "em-edit-form" });
+		const formEl = taskEl.createDiv({ cls: "pm-edit-form" });
 
 		const titleInput = formEl.createEl("input", {
-			cls: "em-task-input",
+			cls: "pm-task-input",
 			attr: { type: "text", value: task.title },
 		});
 
-		const dateRow = formEl.createDiv({ cls: "em-form-date-row" });
-		dateRow.createEl("label", { text: "Due:", cls: "em-date-label" });
+		const dateRow = formEl.createDiv({ cls: "pm-form-date-row" });
+		dateRow.createEl("label", { text: "Due:", cls: "pm-date-label" });
 		const dateInput = dateRow.createEl("input", {
-			cls: "em-date-input",
+			cls: "pm-date-input",
 			attr: { type: "date", value: task.dueDate || "" },
 		});
 
-		const btnRow = formEl.createDiv({ cls: "em-form-btn-row" });
-		const saveBtn = btnRow.createEl("button", { text: "Save", cls: "em-form-submit" });
-		const cancelBtn = btnRow.createEl("button", { text: "Cancel", cls: "em-form-cancel" });
+		const btnRow = formEl.createDiv({ cls: "pm-form-btn-row" });
+		const saveBtn = btnRow.createEl("button", { text: "Save", cls: "pm-form-submit" });
+		const cancelBtn = btnRow.createEl("button", { text: "Cancel", cls: "pm-form-cancel" });
 
 		const save = () => {
 			const title = titleInput.value.trim();
 			if (!title) {
-				titleInput.addClass("em-input-error");
+				titleInput.addClass("pm-input-error");
 				return;
 			}
 			const dueDate = dateInput.value || null;
@@ -394,7 +394,7 @@ export class EisenhowerMatrixView extends ItemView {
 		});
 
 		titleInput.addEventListener("input", () => {
-			titleInput.removeClass("em-input-error");
+			titleInput.removeClass("pm-input-error");
 		});
 
 		// Scroll form into view when keyboard opens on mobile
@@ -415,21 +415,21 @@ export class EisenhowerMatrixView extends ItemView {
 	// ==================== COMPLETED SECTION ====================
 
 	private renderCompletedSection(container: HTMLElement, tasks: Task[]): void {
-		const section = container.createDiv({ cls: "em-completed-section" });
+		const section = container.createDiv({ cls: "pm-completed-section" });
 
 		// Header
-		const header = section.createDiv({ cls: "em-completed-header" });
-		const chevron = header.createSpan({ cls: "em-completed-chevron" });
+		const header = section.createDiv({ cls: "pm-completed-header" });
+		const chevron = header.createSpan({ cls: "pm-completed-chevron" });
 		chevron.textContent = "\u25B6";
 		header.createSpan({ text: `Completed (${tasks.length})` });
 
 		// List — expanded if user toggled it open, or collapsed by default
 		const isExpanded = this.completedSectionExpanded;
 		const list = section.createDiv({
-			cls: isExpanded ? "em-completed-list" : "em-completed-list em-hidden",
+			cls: isExpanded ? "pm-completed-list" : "pm-completed-list pm-hidden",
 		});
 		if (isExpanded) {
-			chevron.addClass("em-completed-chevron-open");
+			chevron.addClass("pm-completed-chevron-open");
 		}
 
 		for (const task of tasks) {
@@ -437,39 +437,39 @@ export class EisenhowerMatrixView extends ItemView {
 		}
 
 		header.addEventListener("click", () => {
-			const isHidden = list.hasClass("em-hidden");
-			list.toggleClass("em-hidden", !isHidden);
-			chevron.toggleClass("em-completed-chevron-open", isHidden);
+			const isHidden = list.hasClass("pm-hidden");
+			list.toggleClass("pm-hidden", !isHidden);
+			chevron.toggleClass("pm-completed-chevron-open", isHidden);
 			this.completedSectionExpanded = isHidden;
 		});
 	}
 
 	private renderCompletedTask(listEl: HTMLElement, task: Task): void {
-		const taskEl = listEl.createDiv({ cls: "em-completed-task" });
+		const taskEl = listEl.createDiv({ cls: "pm-completed-task" });
 
 		// Checked checkbox (click to revive)
-		const checkbox = taskEl.createDiv({ cls: "em-task-checkbox em-checked" });
+		const checkbox = taskEl.createDiv({ cls: "pm-task-checkbox pm-checked" });
 		checkbox.addEventListener("click", (e) => {
 			e.stopPropagation();
 			void this.handleUncompleteTask(task.id);
 		});
 
 		// Title (strikethrough via CSS)
-		taskEl.createDiv({ cls: "em-completed-task-title", text: task.title });
+		taskEl.createDiv({ cls: "pm-completed-task-title", text: task.title });
 
 		// Quadrant color dot
-		const dot = taskEl.createDiv({ cls: "em-quadrant-dot" });
+		const dot = taskEl.createDiv({ cls: "pm-quadrant-dot" });
 		dot.setCssStyles({ background: QUADRANT_COLORS[task.quadrant] });
 
 		// Completion time
 		taskEl.createDiv({
-			cls: "em-completed-task-time",
+			cls: "pm-completed-task-time",
 			text: formatCompletedDate(task.completedAt!),
 		});
 
 		// Delete button
 		const deleteBtn = taskEl.createEl("button", {
-			cls: "em-task-delete",
+			cls: "pm-task-delete",
 			attr: { "aria-label": "Delete task" },
 		});
 		deleteBtn.textContent = "\u00d7";
@@ -488,15 +488,15 @@ export class EisenhowerMatrixView extends ItemView {
 				e.dataTransfer.setData("text/plain", taskId);
 				e.dataTransfer.effectAllowed = "move";
 			}
-			taskEl.addClass("em-dragging");
+			taskEl.addClass("pm-dragging");
 			this.draggedTaskId = taskId;
 		});
 
 		taskEl.addEventListener("dragend", () => {
-			taskEl.removeClass("em-dragging");
+			taskEl.removeClass("pm-dragging");
 			this.draggedTaskId = null;
-			this.contentEl.querySelectorAll(".em-drop-target").forEach((el) => {
-				(el as HTMLElement).removeClass("em-drop-target");
+			this.contentEl.querySelectorAll(".pm-drop-target").forEach((el) => {
+				(el as HTMLElement).removeClass("pm-drop-target");
 			});
 		});
 	}
@@ -507,19 +507,19 @@ export class EisenhowerMatrixView extends ItemView {
 			if (e.dataTransfer) {
 				e.dataTransfer.dropEffect = "move";
 			}
-			quadrantEl.addClass("em-drop-target");
+			quadrantEl.addClass("pm-drop-target");
 		});
 
 		quadrantEl.addEventListener("dragleave", (e: DragEvent) => {
 			const relatedTarget = e.relatedTarget as HTMLElement;
 			if (!quadrantEl.contains(relatedTarget)) {
-				quadrantEl.removeClass("em-drop-target");
+				quadrantEl.removeClass("pm-drop-target");
 			}
 		});
 
 		quadrantEl.addEventListener("drop", (e: DragEvent) => {
 			e.preventDefault();
-			quadrantEl.removeClass("em-drop-target");
+			quadrantEl.removeClass("pm-drop-target");
 
 			const taskId = e.dataTransfer?.getData("text/plain");
 			if (!taskId) return;
@@ -555,7 +555,7 @@ export class EisenhowerMatrixView extends ItemView {
 
 				// Create visual clone
 				const clone = taskEl.cloneNode(true) as HTMLElement;
-				clone.addClass("em-touch-clone");
+				clone.addClass("pm-touch-clone");
 				clone.setCssStyles({
 					left: `${startX - 50}px`,
 					top: `${startY - 20}px`,
@@ -564,7 +564,7 @@ export class EisenhowerMatrixView extends ItemView {
 				document.body.appendChild(clone);
 				this.touchClone = clone;
 
-				taskEl.addClass("em-dragging");
+				taskEl.addClass("pm-dragging");
 
 				if (navigator.vibrate) {
 					navigator.vibrate(50);
@@ -597,13 +597,13 @@ export class EisenhowerMatrixView extends ItemView {
 
 			// Highlight quadrant under finger
 			const targetQuadrant = this.getQuadrantAtPoint(touch.clientX, touch.clientY);
-			this.contentEl.querySelectorAll(".em-quadrant").forEach((el) => {
-				(el as HTMLElement).removeClass("em-drop-target");
+			this.contentEl.querySelectorAll(".pm-quadrant").forEach((el) => {
+				(el as HTMLElement).removeClass("pm-drop-target");
 			});
 			if (targetQuadrant) {
 				const targetEl = this.contentEl.querySelector(`[data-quadrant="${targetQuadrant}"]`);
 				if (targetEl) {
-					(targetEl as HTMLElement).addClass("em-drop-target");
+					(targetEl as HTMLElement).addClass("pm-drop-target");
 				}
 			}
 		};
@@ -656,18 +656,18 @@ export class EisenhowerMatrixView extends ItemView {
 			this.touchClone = null;
 		}
 		if (this.draggedEl) {
-			this.draggedEl.removeClass("em-dragging");
+			this.draggedEl.removeClass("pm-dragging");
 			this.draggedEl = null;
 		}
 		this.draggedTaskId = null;
 
-		this.contentEl.querySelectorAll(".em-drop-target").forEach((el) => {
-			(el as HTMLElement).removeClass("em-drop-target");
+		this.contentEl.querySelectorAll(".pm-drop-target").forEach((el) => {
+			(el as HTMLElement).removeClass("pm-drop-target");
 		});
 	}
 
 	private getQuadrantAtPoint(x: number, y: number): Quadrant | null {
-		const quadrants = this.contentEl.querySelectorAll(".em-quadrant");
+		const quadrants = this.contentEl.querySelectorAll(".pm-quadrant");
 		for (const qEl of Array.from(quadrants)) {
 			const rect = qEl.getBoundingClientRect();
 			if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {

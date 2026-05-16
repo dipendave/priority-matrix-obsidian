@@ -1,14 +1,14 @@
 /**
  * @jest-environment jsdom
  *
- * Integration tests for EisenhowerMatrixView — covers all user-facing
+ * Integration tests for PriorityMatrixView — covers all user-facing
  * interactions through the view layer to prevent regressions in core
  * functionality (add, edit, delete, undo, drag, rendering, persistence).
  */
 
-import { EisenhowerMatrixView } from "../src/view";
-import EisenhowerMatrixPlugin from "../src/main";
-import { Quadrant, DEFAULT_DATA, QUADRANT_META, QUADRANT_COLORS, VIEW_TYPE_EISENHOWER } from "../src/types";
+import { PriorityMatrixView } from "../src/view";
+import PriorityMatrixPlugin from "../src/main";
+import { Quadrant, DEFAULT_DATA, QUADRANT_META, QUADRANT_COLORS, VIEW_TYPE_PRIORITY } from "../src/types";
 import { Notice, Platform } from "obsidian";
 
 // ==================== Helpers ====================
@@ -17,67 +17,67 @@ function flushPromises(): Promise<void> {
 	return new Promise((resolve) => process.nextTick(resolve));
 }
 
-function createPlugin(): EisenhowerMatrixPlugin {
-	const plugin = new EisenhowerMatrixPlugin({} as any, {} as any);
+function createPlugin(): PriorityMatrixPlugin {
+	const plugin = new PriorityMatrixPlugin({} as any, {} as any);
 	plugin.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
 	plugin.saveData = jest.fn().mockResolvedValue(undefined);
 	plugin.loadData = jest.fn().mockResolvedValue(null);
 	return plugin;
 }
 
-function createView(plugin: EisenhowerMatrixPlugin): EisenhowerMatrixView {
-	const view = new EisenhowerMatrixView({} as any, plugin);
+function createView(plugin: PriorityMatrixPlugin): PriorityMatrixView {
+	const view = new PriorityMatrixView({} as any, plugin);
 	return view;
 }
 
 /** Add a task via the plugin and re-render the view */
-function addTaskAndRender(view: EisenhowerMatrixView, plugin: EisenhowerMatrixPlugin, title: string, quadrant: Quadrant, dueDate: string | null = null) {
+function addTaskAndRender(view: PriorityMatrixView, plugin: PriorityMatrixPlugin, title: string, quadrant: Quadrant, dueDate: string | null = null) {
 	plugin.addTask(title, quadrant, dueDate);
 	view.renderMatrix();
 }
 
 /** Query helpers */
-function getQuadrants(view: EisenhowerMatrixView): HTMLElement[] {
-	return Array.from(view.contentEl.querySelectorAll(".em-quadrant"));
+function getQuadrants(view: PriorityMatrixView): HTMLElement[] {
+	return Array.from(view.contentEl.querySelectorAll(".pm-quadrant"));
 }
 
-function getQuadrantByType(view: EisenhowerMatrixView, q: Quadrant): HTMLElement {
+function getQuadrantByType(view: PriorityMatrixView, q: Quadrant): HTMLElement {
 	return view.contentEl.querySelector(`[data-quadrant="${q}"]`) as HTMLElement;
 }
 
-function getTaskElements(view: EisenhowerMatrixView): HTMLElement[] {
-	return Array.from(view.contentEl.querySelectorAll(".em-task"));
+function getTaskElements(view: PriorityMatrixView): HTMLElement[] {
+	return Array.from(view.contentEl.querySelectorAll(".pm-task"));
 }
 
-function getTasksInQuadrant(view: EisenhowerMatrixView, q: Quadrant): HTMLElement[] {
+function getTasksInQuadrant(view: PriorityMatrixView, q: Quadrant): HTMLElement[] {
 	const qEl = getQuadrantByType(view, q);
-	return qEl ? Array.from(qEl.querySelectorAll(".em-task")) : [];
+	return qEl ? Array.from(qEl.querySelectorAll(".pm-task")) : [];
 }
 
-function getAddButton(view: EisenhowerMatrixView, q: Quadrant): HTMLElement {
+function getAddButton(view: PriorityMatrixView, q: Quadrant): HTMLElement {
 	const qEl = getQuadrantByType(view, q);
-	return qEl.querySelector(".em-add-btn") as HTMLElement;
+	return qEl.querySelector(".pm-add-btn") as HTMLElement;
 }
 
-function getAddForm(view: EisenhowerMatrixView, q: Quadrant): HTMLElement {
+function getAddForm(view: PriorityMatrixView, q: Quadrant): HTMLElement {
 	const qEl = getQuadrantByType(view, q);
-	return qEl.querySelector(".em-add-form") as HTMLElement;
+	return qEl.querySelector(".pm-add-form") as HTMLElement;
 }
 
 function getFormInput(form: HTMLElement): HTMLInputElement {
-	return form.querySelector(".em-task-input") as HTMLInputElement;
+	return form.querySelector(".pm-task-input") as HTMLInputElement;
 }
 
 function getFormDateInput(form: HTMLElement): HTMLInputElement {
-	return form.querySelector(".em-date-input") as HTMLInputElement;
+	return form.querySelector(".pm-date-input") as HTMLInputElement;
 }
 
 function getFormSubmitBtn(form: HTMLElement): HTMLElement {
-	return form.querySelector(".em-form-submit") as HTMLElement;
+	return form.querySelector(".pm-form-submit") as HTMLElement;
 }
 
 function getFormCancelBtn(form: HTMLElement): HTMLElement {
-	return form.querySelector(".em-form-cancel") as HTMLElement;
+	return form.querySelector(".pm-form-cancel") as HTMLElement;
 }
 
 // ==================== Setup ====================
@@ -100,12 +100,12 @@ afterEach(() => {
 describe("view identity", () => {
 	it("returns correct view type", () => {
 		const view = createView(createPlugin());
-		expect(view.getViewType()).toBe(VIEW_TYPE_EISENHOWER);
+		expect(view.getViewType()).toBe(VIEW_TYPE_PRIORITY);
 	});
 
 	it("returns correct display text", () => {
 		const view = createView(createPlugin());
-		expect(view.getDisplayText()).toBe("Eisenhower matrix");
+		expect(view.getDisplayText()).toBe("Priority matrix");
 	});
 
 	it("returns correct icon", () => {
@@ -223,7 +223,7 @@ describe("matrix rendering", () => {
 		const view = createView(createPlugin());
 		view.renderMatrix();
 
-		const urgency = view.contentEl.querySelector(".em-axis-urgency");
+		const urgency = view.contentEl.querySelector(".pm-axis-urgency");
 		expect(urgency).toBeTruthy();
 		expect(urgency!.textContent).toContain("URGENT");
 		expect(urgency!.textContent).toContain("NOT URGENT");
@@ -233,7 +233,7 @@ describe("matrix rendering", () => {
 		const view = createView(createPlugin());
 		view.renderMatrix();
 
-		const importance = view.contentEl.querySelector(".em-axis-importance");
+		const importance = view.contentEl.querySelector(".pm-axis-importance");
 		expect(importance).toBeTruthy();
 		expect(importance!.textContent).toContain("IMPORTANT");
 		expect(importance!.textContent).toContain("NOT IMPORTANT");
@@ -245,7 +245,7 @@ describe("matrix rendering", () => {
 
 		for (const q of [Quadrant.Q1, Quadrant.Q2, Quadrant.Q3, Quadrant.Q4]) {
 			const qEl = getQuadrantByType(view, q);
-			const action = qEl.querySelector(".em-quadrant-action");
+			const action = qEl.querySelector(".pm-quadrant-action");
 			expect(action).toBeTruthy();
 			expect(action!.textContent).toContain(QUADRANT_META[q].action);
 		}
@@ -271,11 +271,11 @@ describe("matrix rendering", () => {
 		expect(getQuadrants(view)).toHaveLength(4);
 	});
 
-	it("applies em-container class to contentEl", () => {
+	it("applies pm-container class to contentEl", () => {
 		const view = createView(createPlugin());
 		view.renderMatrix();
 
-		expect(view.contentEl.classList.contains("em-container")).toBe(true);
+		expect(view.contentEl.classList.contains("pm-container")).toBe(true);
 	});
 });
 
@@ -287,17 +287,17 @@ describe("empty state", () => {
 		view.renderMatrix();
 
 		const qEl = getQuadrantByType(view, Quadrant.Q1);
-		const emptyState = qEl.querySelector(".em-empty-state");
+		const emptyState = qEl.querySelector(".pm-empty-state");
 		expect(emptyState).toBeTruthy();
 		expect(emptyState!.textContent).toBe("Tap + to add, tap a task to edit");
 	});
 
-	it("applies em-quadrant-empty class when no tasks", () => {
+	it("applies pm-quadrant-empty class when no tasks", () => {
 		const view = createView(createPlugin());
 		view.renderMatrix();
 
 		const qEl = getQuadrantByType(view, Quadrant.Q1);
-		expect(qEl.classList.contains("em-quadrant-empty")).toBe(true);
+		expect(qEl.classList.contains("pm-quadrant-empty")).toBe(true);
 	});
 
 	it("does not show empty state when tasks exist", () => {
@@ -306,17 +306,17 @@ describe("empty state", () => {
 		addTaskAndRender(view, plugin, "Task 1", Quadrant.Q1);
 
 		const qEl = getQuadrantByType(view, Quadrant.Q1);
-		const emptyState = qEl.querySelector(".em-empty-state");
+		const emptyState = qEl.querySelector(".pm-empty-state");
 		expect(emptyState).toBeNull();
 	});
 
-	it("does not apply em-quadrant-empty when tasks exist", () => {
+	it("does not apply pm-quadrant-empty when tasks exist", () => {
 		const plugin = createPlugin();
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task 1", Quadrant.Q1);
 
 		const qEl = getQuadrantByType(view, Quadrant.Q1);
-		expect(qEl.classList.contains("em-quadrant-empty")).toBe(false);
+		expect(qEl.classList.contains("pm-quadrant-empty")).toBe(false);
 	});
 });
 
@@ -328,7 +328,7 @@ describe("task count badge", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task 1", Quadrant.Q1);
 
-		const badge = getQuadrantByType(view, Quadrant.Q1).querySelector(".em-task-count");
+		const badge = getQuadrantByType(view, Quadrant.Q1).querySelector(".pm-task-count");
 		expect(badge).toBeTruthy();
 		expect(badge!.textContent!.trim()).toBe("1");
 	});
@@ -341,7 +341,7 @@ describe("task count badge", () => {
 		plugin.addTask("Task 3", Quadrant.Q2, null);
 		view.renderMatrix();
 
-		const badge = getQuadrantByType(view, Quadrant.Q2).querySelector(".em-task-count");
+		const badge = getQuadrantByType(view, Quadrant.Q2).querySelector(".pm-task-count");
 		expect(badge!.textContent!.trim()).toBe("3");
 	});
 
@@ -349,7 +349,7 @@ describe("task count badge", () => {
 		const view = createView(createPlugin());
 		view.renderMatrix();
 
-		const badge = getQuadrantByType(view, Quadrant.Q1).querySelector(".em-task-count");
+		const badge = getQuadrantByType(view, Quadrant.Q1).querySelector(".pm-task-count");
 		expect(badge).toBeNull();
 	});
 
@@ -361,8 +361,8 @@ describe("task count badge", () => {
 		plugin.addTask("Q2b", Quadrant.Q2, null);
 		view.renderMatrix();
 
-		const q1Badge = getQuadrantByType(view, Quadrant.Q1).querySelector(".em-task-count");
-		const q2Badge = getQuadrantByType(view, Quadrant.Q2).querySelector(".em-task-count");
+		const q1Badge = getQuadrantByType(view, Quadrant.Q1).querySelector(".pm-task-count");
+		const q2Badge = getQuadrantByType(view, Quadrant.Q2).querySelector(".pm-task-count");
 		expect(q1Badge!.textContent!.trim()).toBe("1");
 		expect(q2Badge!.textContent!.trim()).toBe("2");
 	});
@@ -376,7 +376,7 @@ describe("task rendering", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Buy groceries", Quadrant.Q1);
 
-		const title = view.contentEl.querySelector(".em-task-title");
+		const title = view.contentEl.querySelector(".pm-task-title");
 		expect(title!.textContent).toBe("Buy groceries");
 	});
 
@@ -395,7 +395,7 @@ describe("task rendering", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Test", Quadrant.Q1);
 
-		const handle = view.contentEl.querySelector(".em-task-drag-handle");
+		const handle = view.contentEl.querySelector(".pm-task-drag-handle");
 		expect(handle).toBeTruthy();
 		expect(handle!.textContent).toBe("\u2630");
 	});
@@ -405,7 +405,7 @@ describe("task rendering", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Test", Quadrant.Q1);
 
-		const deleteBtn = view.contentEl.querySelector(".em-task-delete");
+		const deleteBtn = view.contentEl.querySelector(".pm-task-delete");
 		expect(deleteBtn).toBeTruthy();
 		expect(deleteBtn!.textContent).toBe("\u00d7");
 	});
@@ -415,7 +415,7 @@ describe("task rendering", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Test", Quadrant.Q1);
 
-		const taskEl = view.contentEl.querySelector(".em-task");
+		const taskEl = view.contentEl.querySelector(".pm-task");
 		expect(taskEl!.getAttribute("draggable")).toBe("true");
 	});
 
@@ -427,7 +427,7 @@ describe("task rendering", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task", Quadrant.Q1, "2025-06-15");
 
-		const dueEl = view.contentEl.querySelector(".em-task-due");
+		const dueEl = view.contentEl.querySelector(".pm-task-due");
 		expect(dueEl).toBeTruthy();
 		expect(dueEl!.textContent).toBe("Today");
 
@@ -439,11 +439,11 @@ describe("task rendering", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task", Quadrant.Q1, null);
 
-		const dueEl = view.contentEl.querySelector(".em-task-due");
+		const dueEl = view.contentEl.querySelector(".pm-task-due");
 		expect(dueEl).toBeNull();
 	});
 
-	it("applies em-overdue class for past due dates", () => {
+	it("applies pm-overdue class for past due dates", () => {
 		jest.useFakeTimers();
 		jest.setSystemTime(new Date("2025-06-15T12:00:00"));
 
@@ -451,13 +451,13 @@ describe("task rendering", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Overdue task", Quadrant.Q1, "2025-06-10");
 
-		const dueEl = view.contentEl.querySelector(".em-task-due");
-		expect(dueEl!.classList.contains("em-overdue")).toBe(true);
+		const dueEl = view.contentEl.querySelector(".pm-task-due");
+		expect(dueEl!.classList.contains("pm-overdue")).toBe(true);
 
 		jest.useRealTimers();
 	});
 
-	it("does not apply em-overdue for future dates", () => {
+	it("does not apply pm-overdue for future dates", () => {
 		jest.useFakeTimers();
 		jest.setSystemTime(new Date("2025-06-15T12:00:00"));
 
@@ -465,8 +465,8 @@ describe("task rendering", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Future task", Quadrant.Q1, "2025-06-20");
 
-		const dueEl = view.contentEl.querySelector(".em-task-due");
-		expect(dueEl!.classList.contains("em-overdue")).toBe(false);
+		const dueEl = view.contentEl.querySelector(".pm-task-due");
+		expect(dueEl!.classList.contains("pm-overdue")).toBe(false);
 
 		jest.useRealTimers();
 	});
@@ -493,7 +493,7 @@ describe("task rendering", () => {
 		view.renderMatrix();
 
 		const tasks = getTasksInQuadrant(view, Quadrant.Q1);
-		const titles = tasks.map((t) => t.querySelector(".em-task-title")!.textContent);
+		const titles = tasks.map((t) => t.querySelector(".pm-task-title")!.textContent);
 		expect(titles).toEqual(["First", "Second", "Third"]);
 	});
 });
@@ -506,7 +506,7 @@ describe("add task flow", () => {
 		view.renderMatrix();
 
 		const form = getAddForm(view, Quadrant.Q1);
-		expect(form.classList.contains("em-hidden")).toBe(true);
+		expect(form.classList.contains("pm-hidden")).toBe(true);
 	});
 
 	it("clicking add button shows the form", () => {
@@ -517,7 +517,7 @@ describe("add task flow", () => {
 		btn.click();
 
 		const form = getAddForm(view, Quadrant.Q1);
-		expect(form.classList.contains("em-hidden")).toBe(false);
+		expect(form.classList.contains("pm-hidden")).toBe(false);
 	});
 
 	it("clicking add button again hides the form", () => {
@@ -529,7 +529,7 @@ describe("add task flow", () => {
 		btn.click(); // hide
 
 		const form = getAddForm(view, Quadrant.Q1);
-		expect(form.classList.contains("em-hidden")).toBe(true);
+		expect(form.classList.contains("pm-hidden")).toBe(true);
 	});
 
 	it("submitting with valid title adds a task", async () => {
@@ -579,7 +579,7 @@ describe("add task flow", () => {
 		input.value = "";
 		submitBtn.click();
 
-		expect(input.classList.contains("em-input-error")).toBe(true);
+		expect(input.classList.contains("pm-input-error")).toBe(true);
 	});
 
 	it("typing clears error class", () => {
@@ -592,10 +592,10 @@ describe("add task flow", () => {
 
 		input.value = "";
 		submitBtn.click();
-		expect(input.classList.contains("em-input-error")).toBe(true);
+		expect(input.classList.contains("pm-input-error")).toBe(true);
 
 		input.dispatchEvent(new Event("input"));
-		expect(input.classList.contains("em-input-error")).toBe(false);
+		expect(input.classList.contains("pm-input-error")).toBe(false);
 	});
 
 	it("cancel button clears form and hides it", () => {
@@ -613,7 +613,7 @@ describe("add task flow", () => {
 		cancelBtn.click();
 
 		expect(input.value).toBe("");
-		expect(form.classList.contains("em-hidden")).toBe(true);
+		expect(form.classList.contains("pm-hidden")).toBe(true);
 	});
 
 	it("Enter key submits the form", async () => {
@@ -643,7 +643,7 @@ describe("add task flow", () => {
 		const input = getFormInput(form);
 		input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
 
-		expect(form.classList.contains("em-hidden")).toBe(true);
+		expect(form.classList.contains("pm-hidden")).toBe(true);
 	});
 
 	it("form resets after successful add", async () => {
@@ -670,7 +670,7 @@ describe("add task flow", () => {
 		expect(newDateInput.value).toBe("");
 	});
 
-	it("new task gets em-task-new highlight class", async () => {
+	it("new task gets pm-task-new highlight class", async () => {
 		const plugin = createPlugin();
 		const view = createView(plugin);
 		view.renderMatrix();
@@ -684,7 +684,7 @@ describe("add task flow", () => {
 		await flushPromises();
 
 		const taskEl = view.contentEl.querySelector(`[data-task-id="${plugin.data.tasks[0].id}"]`);
-		expect(taskEl!.classList.contains("em-task-new")).toBe(true);
+		expect(taskEl!.classList.contains("pm-task-new")).toBe(true);
 	});
 });
 
@@ -696,10 +696,10 @@ describe("edit task flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Editable", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const editForm = view.contentEl.querySelector(".em-edit-form");
+		const editForm = view.contentEl.querySelector(".pm-edit-form");
 		expect(editForm).toBeTruthy();
 	});
 
@@ -708,10 +708,10 @@ describe("edit task flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Original title", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const input = view.contentEl.querySelector(".em-edit-form .em-task-input") as HTMLInputElement;
+		const input = view.contentEl.querySelector(".pm-edit-form .pm-task-input") as HTMLInputElement;
 		expect(input.value).toBe("Original title");
 	});
 
@@ -720,10 +720,10 @@ describe("edit task flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task", Quadrant.Q1, "2025-12-25");
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const dateInput = view.contentEl.querySelector(".em-edit-form .em-date-input") as HTMLInputElement;
+		const dateInput = view.contentEl.querySelector(".pm-edit-form .pm-date-input") as HTMLInputElement;
 		expect(dateInput.value).toBe("2025-12-25");
 	});
 
@@ -732,10 +732,10 @@ describe("edit task flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "No date", Quadrant.Q1, null);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const dateInput = view.contentEl.querySelector(".em-edit-form .em-date-input") as HTMLInputElement;
+		const dateInput = view.contentEl.querySelector(".pm-edit-form .pm-date-input") as HTMLInputElement;
 		expect(dateInput.value).toBe("");
 	});
 
@@ -744,11 +744,11 @@ describe("edit task flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Old title", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const input = view.contentEl.querySelector(".em-edit-form .em-task-input") as HTMLInputElement;
-		const saveBtn = view.contentEl.querySelector(".em-edit-form .em-form-submit") as HTMLElement;
+		const input = view.contentEl.querySelector(".pm-edit-form .pm-task-input") as HTMLInputElement;
+		const saveBtn = view.contentEl.querySelector(".pm-edit-form .pm-form-submit") as HTMLElement;
 
 		input.value = "New title";
 		saveBtn.click();
@@ -762,16 +762,16 @@ describe("edit task flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Has title", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const input = view.contentEl.querySelector(".em-edit-form .em-task-input") as HTMLInputElement;
-		const saveBtn = view.contentEl.querySelector(".em-edit-form .em-form-submit") as HTMLElement;
+		const input = view.contentEl.querySelector(".pm-edit-form .pm-task-input") as HTMLInputElement;
+		const saveBtn = view.contentEl.querySelector(".pm-edit-form .pm-form-submit") as HTMLElement;
 
 		input.value = "";
 		saveBtn.click();
 
-		expect(input.classList.contains("em-input-error")).toBe(true);
+		expect(input.classList.contains("pm-input-error")).toBe(true);
 		// Original title should be unchanged
 		expect(plugin.data.tasks[0].title).toBe("Has title");
 	});
@@ -781,15 +781,15 @@ describe("edit task flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Keep me", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const cancelBtn = view.contentEl.querySelector(".em-edit-form .em-form-cancel") as HTMLElement;
+		const cancelBtn = view.contentEl.querySelector(".pm-edit-form .pm-form-cancel") as HTMLElement;
 		cancelBtn.click();
 
 		// Should be back to normal view, not edit form
-		expect(view.contentEl.querySelector(".em-edit-form")).toBeNull();
-		expect(view.contentEl.querySelector(".em-task-title")!.textContent).toBe("Keep me");
+		expect(view.contentEl.querySelector(".pm-edit-form")).toBeNull();
+		expect(view.contentEl.querySelector(".pm-task-title")!.textContent).toBe("Keep me");
 	});
 
 	it("Enter key saves the edit", async () => {
@@ -797,10 +797,10 @@ describe("edit task flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Old", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const input = view.contentEl.querySelector(".em-edit-form .em-task-input") as HTMLInputElement;
+		const input = view.contentEl.querySelector(".pm-edit-form .pm-task-input") as HTMLInputElement;
 		input.value = "Updated via Enter";
 		input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 		await flushPromises();
@@ -813,16 +813,16 @@ describe("edit task flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Original", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const input = view.contentEl.querySelector(".em-edit-form .em-task-input") as HTMLInputElement;
+		const input = view.contentEl.querySelector(".pm-edit-form .pm-task-input") as HTMLInputElement;
 		input.value = "Changed";
 		input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
 
 		// Task should still have original title
 		expect(plugin.data.tasks[0].title).toBe("Original");
-		expect(view.contentEl.querySelector(".em-edit-form")).toBeNull();
+		expect(view.contentEl.querySelector(".pm-edit-form")).toBeNull();
 	});
 
 	it("disables dragging during edit", () => {
@@ -830,23 +830,23 @@ describe("edit task flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const taskEl = view.contentEl.querySelector(".em-task");
+		const taskEl = view.contentEl.querySelector(".pm-task");
 		expect(taskEl!.getAttribute("draggable")).toBe("false");
 	});
 
-	it("applies em-task-editing class during edit", () => {
+	it("applies pm-task-editing class during edit", () => {
 		const plugin = createPlugin();
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const taskEl = view.contentEl.querySelector(".em-task");
-		expect(taskEl!.classList.contains("em-task-editing")).toBe(true);
+		const taskEl = view.contentEl.querySelector(".pm-task");
+		expect(taskEl!.classList.contains("pm-task-editing")).toBe(true);
 	});
 
 	it("typing in edit form clears error class", () => {
@@ -854,18 +854,18 @@ describe("edit task flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const input = view.contentEl.querySelector(".em-edit-form .em-task-input") as HTMLInputElement;
-		const saveBtn = view.contentEl.querySelector(".em-edit-form .em-form-submit") as HTMLElement;
+		const input = view.contentEl.querySelector(".pm-edit-form .pm-task-input") as HTMLInputElement;
+		const saveBtn = view.contentEl.querySelector(".pm-edit-form .pm-form-submit") as HTMLElement;
 
 		input.value = "";
 		saveBtn.click();
-		expect(input.classList.contains("em-input-error")).toBe(true);
+		expect(input.classList.contains("pm-input-error")).toBe(true);
 
 		input.dispatchEvent(new Event("input"));
-		expect(input.classList.contains("em-input-error")).toBe(false);
+		expect(input.classList.contains("pm-input-error")).toBe(false);
 	});
 });
 
@@ -877,7 +877,7 @@ describe("delete and undo flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Delete me", Quadrant.Q1);
 
-		const deleteBtn = view.contentEl.querySelector(".em-task-delete") as HTMLElement;
+		const deleteBtn = view.contentEl.querySelector(".pm-task-delete") as HTMLElement;
 		deleteBtn.click();
 		await flushPromises();
 
@@ -889,12 +889,12 @@ describe("delete and undo flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Delete me", Quadrant.Q1);
 
-		const deleteBtn = view.contentEl.querySelector(".em-task-delete") as HTMLElement;
+		const deleteBtn = view.contentEl.querySelector(".pm-task-delete") as HTMLElement;
 		deleteBtn.click();
 		await flushPromises();
 
 		// Matrix should show empty state now
-		expect(view.contentEl.querySelector(".em-empty-state")).toBeTruthy();
+		expect(view.contentEl.querySelector(".pm-empty-state")).toBeTruthy();
 	});
 
 	it("delete shows notice with undo option", async () => {
@@ -902,7 +902,7 @@ describe("delete and undo flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task", Quadrant.Q1);
 
-		const deleteBtn = view.contentEl.querySelector(".em-task-delete") as HTMLElement;
+		const deleteBtn = view.contentEl.querySelector(".pm-task-delete") as HTMLElement;
 		deleteBtn.click();
 		await flushPromises();
 
@@ -912,7 +912,7 @@ describe("delete and undo flow", () => {
 
 		// Fragment should contain "Task deleted." and an undo link
 		const fragment = notice.message as DocumentFragment;
-		const undoLink = fragment.querySelector(".em-undo-link");
+		const undoLink = fragment.querySelector(".pm-undo-link");
 		expect(undoLink).toBeTruthy();
 		expect(undoLink!.textContent).toBe("Undo");
 	});
@@ -923,14 +923,14 @@ describe("delete and undo flow", () => {
 		addTaskAndRender(view, plugin, "Restore me", Quadrant.Q1);
 		const originalId = plugin.data.tasks[0].id;
 
-		const deleteBtn = view.contentEl.querySelector(".em-task-delete") as HTMLElement;
+		const deleteBtn = view.contentEl.querySelector(".pm-task-delete") as HTMLElement;
 		deleteBtn.click();
 		await flushPromises();
 		expect(plugin.data.tasks).toHaveLength(0);
 
 		// Click undo
 		const fragment = Notice.instances[0].message as DocumentFragment;
-		const undoLink = fragment.querySelector(".em-undo-link") as HTMLElement;
+		const undoLink = fragment.querySelector(".pm-undo-link") as HTMLElement;
 		undoLink.click();
 		await flushPromises();
 
@@ -944,17 +944,17 @@ describe("delete and undo flow", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Visible again", Quadrant.Q2);
 
-		const deleteBtn = view.contentEl.querySelector(".em-task-delete") as HTMLElement;
+		const deleteBtn = view.contentEl.querySelector(".pm-task-delete") as HTMLElement;
 		deleteBtn.click();
 		await flushPromises();
 
 		const fragment = Notice.instances[0].message as DocumentFragment;
-		const undoLink = fragment.querySelector(".em-undo-link") as HTMLElement;
+		const undoLink = fragment.querySelector(".pm-undo-link") as HTMLElement;
 		undoLink.click();
 		await flushPromises();
 
 		// Task should be visible in the matrix again
-		const title = view.contentEl.querySelector(".em-task-title");
+		const title = view.contentEl.querySelector(".pm-task-title");
 		expect(title!.textContent).toBe("Visible again");
 	});
 
@@ -1000,7 +1000,7 @@ describe("desktop drag and drop", () => {
 		expect(event.dataTransfer!.effectAllowed).toBe("move");
 	});
 
-	it("dragstart adds em-dragging class", () => {
+	it("dragstart adds pm-dragging class", () => {
 		const plugin = createPlugin();
 		const view = createView(plugin);
 		const task = plugin.addTask("Drag me", Quadrant.Q1, null);
@@ -1009,10 +1009,10 @@ describe("desktop drag and drop", () => {
 		const taskEl = view.contentEl.querySelector(`[data-task-id="${task.id}"]`) as HTMLElement;
 		taskEl.dispatchEvent(createDragEvent("dragstart"));
 
-		expect(taskEl.classList.contains("em-dragging")).toBe(true);
+		expect(taskEl.classList.contains("pm-dragging")).toBe(true);
 	});
 
-	it("dragend removes em-dragging class", () => {
+	it("dragend removes pm-dragging class", () => {
 		const plugin = createPlugin();
 		const view = createView(plugin);
 		const task = plugin.addTask("Drag me", Quadrant.Q1, null);
@@ -1022,10 +1022,10 @@ describe("desktop drag and drop", () => {
 		taskEl.dispatchEvent(createDragEvent("dragstart"));
 		taskEl.dispatchEvent(createDragEvent("dragend"));
 
-		expect(taskEl.classList.contains("em-dragging")).toBe(false);
+		expect(taskEl.classList.contains("pm-dragging")).toBe(false);
 	});
 
-	it("dragover on quadrant adds em-drop-target class", () => {
+	it("dragover on quadrant adds pm-drop-target class", () => {
 		const plugin = createPlugin();
 		const view = createView(plugin);
 		view.renderMatrix();
@@ -1034,7 +1034,7 @@ describe("desktop drag and drop", () => {
 		const event = createDragEvent("dragover");
 		q2El.dispatchEvent(event);
 
-		expect(q2El.classList.contains("em-drop-target")).toBe(true);
+		expect(q2El.classList.contains("pm-drop-target")).toBe(true);
 		expect(event.preventDefault).toHaveBeenCalled();
 	});
 
@@ -1079,7 +1079,7 @@ describe("desktop drag and drop", () => {
 		const taskEl = view.contentEl.querySelector(`[data-task-id="${task.id}"]`) as HTMLElement;
 		taskEl.dispatchEvent(createDragEvent("dragend"));
 
-		const highlighted = view.contentEl.querySelectorAll(".em-drop-target");
+		const highlighted = view.contentEl.querySelectorAll(".pm-drop-target");
 		expect(highlighted).toHaveLength(0);
 	});
 });
@@ -1108,11 +1108,11 @@ describe("data persistence", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Edit me", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const input = view.contentEl.querySelector(".em-edit-form .em-task-input") as HTMLInputElement;
-		const saveBtn = view.contentEl.querySelector(".em-edit-form .em-form-submit") as HTMLElement;
+		const input = view.contentEl.querySelector(".pm-edit-form .pm-task-input") as HTMLInputElement;
+		const saveBtn = view.contentEl.querySelector(".pm-edit-form .pm-form-submit") as HTMLElement;
 		input.value = "Edited";
 		saveBtn.click();
 		await flushPromises();
@@ -1125,7 +1125,7 @@ describe("data persistence", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Delete me", Quadrant.Q1);
 
-		const deleteBtn = view.contentEl.querySelector(".em-task-delete") as HTMLElement;
+		const deleteBtn = view.contentEl.querySelector(".pm-task-delete") as HTMLElement;
 		deleteBtn.click();
 		await flushPromises();
 
@@ -1137,7 +1137,7 @@ describe("data persistence", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Undo me", Quadrant.Q1);
 
-		const deleteBtn = view.contentEl.querySelector(".em-task-delete") as HTMLElement;
+		const deleteBtn = view.contentEl.querySelector(".pm-task-delete") as HTMLElement;
 		deleteBtn.click();
 		await flushPromises();
 
@@ -1145,7 +1145,7 @@ describe("data persistence", () => {
 		(plugin.saveData as jest.Mock).mockClear();
 
 		const fragment = Notice.instances[0].message as DocumentFragment;
-		const undoLink = fragment.querySelector(".em-undo-link") as HTMLElement;
+		const undoLink = fragment.querySelector(".pm-undo-link") as HTMLElement;
 		undoLink.click();
 		await flushPromises();
 
@@ -1187,7 +1187,7 @@ describe("edge cases", () => {
 		submitBtn.click();
 
 		expect(plugin.data.tasks).toHaveLength(0);
-		expect(input.classList.contains("em-input-error")).toBe(true);
+		expect(input.classList.contains("pm-input-error")).toBe(true);
 	});
 
 	it("single character title is accepted", async () => {
@@ -1212,7 +1212,7 @@ describe("edge cases", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, '<script>alert("xss")</script>', Quadrant.Q1);
 
-		const title = view.contentEl.querySelector(".em-task-title");
+		const title = view.contentEl.querySelector(".pm-task-title");
 		expect(title!.textContent).toBe('<script>alert("xss")</script>');
 		// Should be text content, not parsed HTML
 		expect(view.contentEl.querySelector("script")).toBeNull();
@@ -1262,17 +1262,17 @@ describe("edge cases", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Original", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const input = view.contentEl.querySelector(".em-edit-form .em-task-input") as HTMLInputElement;
-		const saveBtn = view.contentEl.querySelector(".em-edit-form .em-form-submit") as HTMLElement;
+		const input = view.contentEl.querySelector(".pm-edit-form .pm-task-input") as HTMLInputElement;
+		const saveBtn = view.contentEl.querySelector(".pm-edit-form .pm-form-submit") as HTMLElement;
 
 		input.value = "   ";
 		saveBtn.click();
 
 		expect(plugin.data.tasks[0].title).toBe("Original");
-		expect(input.classList.contains("em-input-error")).toBe(true);
+		expect(input.classList.contains("pm-input-error")).toBe(true);
 	});
 });
 
@@ -1283,7 +1283,7 @@ describe("accessibility", () => {
 		const view = createView(createPlugin());
 		view.renderMatrix();
 
-		const buttons = view.contentEl.querySelectorAll(".em-add-btn");
+		const buttons = view.contentEl.querySelectorAll(".pm-add-btn");
 		expect(buttons).toHaveLength(4);
 
 		const labels = Array.from(buttons).map((b) => b.getAttribute("aria-label"));
@@ -1298,7 +1298,7 @@ describe("accessibility", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task", Quadrant.Q1);
 
-		const deleteBtn = view.contentEl.querySelector(".em-task-delete");
+		const deleteBtn = view.contentEl.querySelector(".pm-task-delete");
 		expect(deleteBtn!.getAttribute("aria-label")).toBe("Delete task");
 	});
 
@@ -1323,13 +1323,13 @@ describe("event propagation", () => {
 
 		// The delete handler calls stopPropagation, so clicking delete
 		// should not also open the edit form
-		const deleteBtn = view.contentEl.querySelector(".em-task-delete") as HTMLElement;
+		const deleteBtn = view.contentEl.querySelector(".pm-task-delete") as HTMLElement;
 		deleteBtn.click();
 
 		// If edit was triggered, there would be an edit form
 		// (before delete removes and re-renders everything)
 		// Since delete has stopPropagation, no edit form should appear
-		const editForm = view.contentEl.querySelector(".em-edit-form");
+		const editForm = view.contentEl.querySelector(".pm-edit-form");
 		expect(editForm).toBeNull();
 	});
 
@@ -1338,10 +1338,10 @@ describe("event propagation", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task", Quadrant.Q1);
 
-		const content = view.contentEl.querySelector(".em-task-content") as HTMLElement;
+		const content = view.contentEl.querySelector(".pm-task-content") as HTMLElement;
 		content.click();
 
-		const editForm = view.contentEl.querySelector(".em-edit-form") as HTMLElement;
+		const editForm = view.contentEl.querySelector(".pm-edit-form") as HTMLElement;
 		const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
 		const stopSpy = jest.spyOn(event, "stopPropagation");
 
@@ -1357,7 +1357,7 @@ describe("add form per quadrant", () => {
 		const view = createView(createPlugin());
 		view.renderMatrix();
 
-		const forms = view.contentEl.querySelectorAll(".em-add-form");
+		const forms = view.contentEl.querySelectorAll(".pm-add-form");
 		expect(forms).toHaveLength(4);
 	});
 
@@ -1389,7 +1389,7 @@ describe("task checkbox rendering", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task", Quadrant.Q1);
 
-		const checkbox = view.contentEl.querySelector(".em-task-checkbox");
+		const checkbox = view.contentEl.querySelector(".pm-task-checkbox");
 		expect(checkbox).toBeTruthy();
 	});
 
@@ -1398,21 +1398,21 @@ describe("task checkbox rendering", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task", Quadrant.Q1);
 
-		const taskEl = view.contentEl.querySelector(".em-task") as HTMLElement;
+		const taskEl = view.contentEl.querySelector(".pm-task") as HTMLElement;
 		const children = Array.from(taskEl.children).map((c) => c.className.split(" ")[0]);
-		const checkboxIdx = children.indexOf("em-task-checkbox");
-		const contentIdx = children.indexOf("em-task-content");
+		const checkboxIdx = children.indexOf("pm-task-checkbox");
+		const contentIdx = children.indexOf("pm-task-content");
 		expect(checkboxIdx).toBeLessThan(contentIdx);
 		expect(checkboxIdx).toBeGreaterThanOrEqual(0);
 	});
 
-	it("checkbox does not have em-checked class for active tasks", () => {
+	it("checkbox does not have pm-checked class for active tasks", () => {
 		const plugin = createPlugin();
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Active", Quadrant.Q1);
 
-		const checkbox = view.contentEl.querySelector(".em-task-checkbox");
-		expect(checkbox!.classList.contains("em-checked")).toBe(false);
+		const checkbox = view.contentEl.querySelector(".pm-task-checkbox");
+		expect(checkbox!.classList.contains("pm-checked")).toBe(false);
 	});
 });
 
@@ -1424,7 +1424,7 @@ describe("completing a task", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Check me off", Quadrant.Q1);
 
-		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		const checkbox = view.contentEl.querySelector(".pm-task-checkbox") as HTMLElement;
 		checkbox.click();
 		await flushPromises();
 
@@ -1436,7 +1436,7 @@ describe("completing a task", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Gone soon", Quadrant.Q1);
 
-		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		const checkbox = view.contentEl.querySelector(".pm-task-checkbox") as HTMLElement;
 		checkbox.click();
 		await flushPromises();
 
@@ -1448,13 +1448,13 @@ describe("completing a task", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Done task", Quadrant.Q2);
 
-		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		const checkbox = view.contentEl.querySelector(".pm-task-checkbox") as HTMLElement;
 		checkbox.click();
 		await flushPromises();
 
-		const section = view.contentEl.querySelector(".em-completed-section");
+		const section = view.contentEl.querySelector(".pm-completed-section");
 		expect(section).toBeTruthy();
-		const title = section!.querySelector(".em-completed-task-title");
+		const title = section!.querySelector(".pm-completed-task-title");
 		expect(title!.textContent).toBe("Done task");
 	});
 
@@ -1463,7 +1463,7 @@ describe("completing a task", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Task", Quadrant.Q1);
 
-		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		const checkbox = view.contentEl.querySelector(".pm-task-checkbox") as HTMLElement;
 		checkbox.click();
 		await flushPromises();
 
@@ -1475,7 +1475,7 @@ describe("completing a task", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Notice test", Quadrant.Q1);
 
-		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		const checkbox = view.contentEl.querySelector(".pm-task-checkbox") as HTMLElement;
 		checkbox.click();
 		await flushPromises();
 
@@ -1483,7 +1483,7 @@ describe("completing a task", () => {
 		const notice = Notice.instances[0];
 		expect(notice.duration).toBe(5000);
 		const fragment = notice.message as DocumentFragment;
-		const undoLink = fragment.querySelector(".em-undo-link");
+		const undoLink = fragment.querySelector(".pm-undo-link");
 		expect(undoLink).toBeTruthy();
 		expect(undoLink!.textContent).toBe("Undo");
 	});
@@ -1493,13 +1493,13 @@ describe("completing a task", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Undo complete", Quadrant.Q1);
 
-		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		const checkbox = view.contentEl.querySelector(".pm-task-checkbox") as HTMLElement;
 		checkbox.click();
 		await flushPromises();
 		expect(plugin.data.tasks[0].completedAt).toBeTruthy();
 
 		const fragment = Notice.instances[0].message as DocumentFragment;
-		const undoLink = fragment.querySelector(".em-undo-link") as HTMLElement;
+		const undoLink = fragment.querySelector(".pm-undo-link") as HTMLElement;
 		undoLink.click();
 		await flushPromises();
 
@@ -1512,12 +1512,12 @@ describe("completing a task", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "First complete", Quadrant.Q1);
 
-		const checkbox = view.contentEl.querySelector(".em-task-checkbox") as HTMLElement;
+		const checkbox = view.contentEl.querySelector(".pm-task-checkbox") as HTMLElement;
 		checkbox.click();
 		await flushPromises();
 
-		const list = view.contentEl.querySelector(".em-completed-list");
-		expect(list!.classList.contains("em-hidden")).toBe(false);
+		const list = view.contentEl.querySelector(".pm-completed-list");
+		expect(list!.classList.contains("pm-hidden")).toBe(false);
 	});
 
 	it("quadrant task count decreases after completion", async () => {
@@ -1527,14 +1527,14 @@ describe("completing a task", () => {
 		plugin.addTask("Complete", Quadrant.Q1, null);
 		view.renderMatrix();
 
-		const badge = getQuadrantByType(view, Quadrant.Q1).querySelector(".em-task-count");
+		const badge = getQuadrantByType(view, Quadrant.Q1).querySelector(".pm-task-count");
 		expect(badge!.textContent!.trim()).toBe("2");
 
-		const checkboxes = view.contentEl.querySelectorAll(".em-task-checkbox");
+		const checkboxes = view.contentEl.querySelectorAll(".pm-task-checkbox");
 		(checkboxes[1] as HTMLElement).click();
 		await flushPromises();
 
-		const newBadge = getQuadrantByType(view, Quadrant.Q1).querySelector(".em-task-count");
+		const newBadge = getQuadrantByType(view, Quadrant.Q1).querySelector(".pm-task-count");
 		expect(newBadge!.textContent!.trim()).toBe("1");
 	});
 });
@@ -1547,7 +1547,7 @@ describe("completed section rendering", () => {
 		const view = createView(plugin);
 		addTaskAndRender(view, plugin, "Active", Quadrant.Q1);
 
-		expect(view.contentEl.querySelector(".em-completed-section")).toBeNull();
+		expect(view.contentEl.querySelector(".pm-completed-section")).toBeNull();
 	});
 
 	it("section renders below the matrix wrapper", () => {
@@ -1557,8 +1557,8 @@ describe("completed section rendering", () => {
 		plugin.completeTask(task.id);
 		view.renderMatrix();
 
-		const section = view.contentEl.querySelector(".em-completed-section");
-		const wrapper = view.contentEl.querySelector(".em-matrix-wrapper");
+		const section = view.contentEl.querySelector(".pm-completed-section");
+		const wrapper = view.contentEl.querySelector(".pm-matrix-wrapper");
 		expect(section).toBeTruthy();
 		// Section should come after wrapper in DOM
 		const children = Array.from(view.contentEl.children);
@@ -1574,7 +1574,7 @@ describe("completed section rendering", () => {
 		plugin.completeTask(t2.id);
 		view.renderMatrix();
 
-		const header = view.contentEl.querySelector(".em-completed-header");
+		const header = view.contentEl.querySelector(".pm-completed-header");
 		expect(header!.textContent).toContain("2");
 	});
 
@@ -1585,8 +1585,8 @@ describe("completed section rendering", () => {
 		plugin.completeTask(task.id);
 		view.renderMatrix();
 
-		const list = view.contentEl.querySelector(".em-completed-list");
-		expect(list!.classList.contains("em-hidden")).toBe(true);
+		const list = view.contentEl.querySelector(".pm-completed-list");
+		expect(list!.classList.contains("pm-hidden")).toBe(true);
 	});
 
 	it("clicking header toggles collapsed state", () => {
@@ -1596,14 +1596,14 @@ describe("completed section rendering", () => {
 		plugin.completeTask(task.id);
 		view.renderMatrix();
 
-		const header = view.contentEl.querySelector(".em-completed-header") as HTMLElement;
-		const list = view.contentEl.querySelector(".em-completed-list") as HTMLElement;
+		const header = view.contentEl.querySelector(".pm-completed-header") as HTMLElement;
+		const list = view.contentEl.querySelector(".pm-completed-list") as HTMLElement;
 
 		header.click();
-		expect(list.classList.contains("em-hidden")).toBe(false);
+		expect(list.classList.contains("pm-hidden")).toBe(false);
 
 		header.click();
-		expect(list.classList.contains("em-hidden")).toBe(true);
+		expect(list.classList.contains("pm-hidden")).toBe(true);
 	});
 
 	it("completed task shows strikethrough title", () => {
@@ -1613,7 +1613,7 @@ describe("completed section rendering", () => {
 		plugin.completeTask(task.id);
 		view.renderMatrix();
 
-		const title = view.contentEl.querySelector(".em-completed-task-title");
+		const title = view.contentEl.querySelector(".pm-completed-task-title");
 		expect(title).toBeTruthy();
 		expect(title!.textContent).toBe("Struck");
 	});
@@ -1625,7 +1625,7 @@ describe("completed section rendering", () => {
 		plugin.completeTask(task.id);
 		view.renderMatrix();
 
-		const dot = view.contentEl.querySelector(".em-quadrant-dot") as HTMLElement;
+		const dot = view.contentEl.querySelector(".pm-quadrant-dot") as HTMLElement;
 		expect(dot).toBeTruthy();
 		// jsdom normalizes hex to rgb, so check it contains the color value
 		expect(dot.style.background).toBeTruthy();
@@ -1641,7 +1641,7 @@ describe("completed section rendering", () => {
 		plugin.completeTask(task.id);
 		view.renderMatrix();
 
-		const time = view.contentEl.querySelector(".em-completed-task-time");
+		const time = view.contentEl.querySelector(".pm-completed-task-time");
 		expect(time).toBeTruthy();
 		expect(time!.textContent).toBe("Just now");
 
@@ -1655,8 +1655,8 @@ describe("completed section rendering", () => {
 		plugin.completeTask(task.id);
 		view.renderMatrix();
 
-		const checkbox = view.contentEl.querySelector(".em-completed-task .em-task-checkbox");
-		expect(checkbox!.classList.contains("em-checked")).toBe(true);
+		const checkbox = view.contentEl.querySelector(".pm-completed-task .pm-task-checkbox");
+		expect(checkbox!.classList.contains("pm-checked")).toBe(true);
 	});
 
 	it("completed task has a delete button", () => {
@@ -1666,7 +1666,7 @@ describe("completed section rendering", () => {
 		plugin.completeTask(task.id);
 		view.renderMatrix();
 
-		const deleteBtn = view.contentEl.querySelector(".em-completed-task .em-task-delete");
+		const deleteBtn = view.contentEl.querySelector(".pm-completed-task .pm-task-delete");
 		expect(deleteBtn).toBeTruthy();
 	});
 });
@@ -1681,7 +1681,7 @@ describe("uncompleting a task", () => {
 		plugin.completeTask(task.id);
 		view.renderMatrix();
 
-		const checkbox = view.contentEl.querySelector(".em-completed-task .em-task-checkbox") as HTMLElement;
+		const checkbox = view.contentEl.querySelector(".pm-completed-task .pm-task-checkbox") as HTMLElement;
 		checkbox.click();
 		await flushPromises();
 
@@ -1695,12 +1695,12 @@ describe("uncompleting a task", () => {
 		plugin.completeTask(task.id);
 		view.renderMatrix();
 
-		const checkbox = view.contentEl.querySelector(".em-completed-task .em-task-checkbox") as HTMLElement;
+		const checkbox = view.contentEl.querySelector(".pm-completed-task .pm-task-checkbox") as HTMLElement;
 		checkbox.click();
 		await flushPromises();
 
 		expect(getTasksInQuadrant(view, Quadrant.Q3)).toHaveLength(1);
-		const title = getQuadrantByType(view, Quadrant.Q3).querySelector(".em-task-title");
+		const title = getQuadrantByType(view, Quadrant.Q3).querySelector(".pm-task-title");
 		expect(title!.textContent).toBe("Come back");
 	});
 
@@ -1711,11 +1711,11 @@ describe("uncompleting a task", () => {
 		plugin.completeTask(task.id);
 		view.renderMatrix();
 
-		const checkbox = view.contentEl.querySelector(".em-completed-task .em-task-checkbox") as HTMLElement;
+		const checkbox = view.contentEl.querySelector(".pm-completed-task .pm-task-checkbox") as HTMLElement;
 		checkbox.click();
 		await flushPromises();
 
-		expect(view.contentEl.querySelector(".em-completed-section")).toBeNull();
+		expect(view.contentEl.querySelector(".pm-completed-section")).toBeNull();
 	});
 
 	it("saves data after uncomplete", async () => {
@@ -1726,7 +1726,7 @@ describe("uncompleting a task", () => {
 		view.renderMatrix();
 		(plugin.saveData as jest.Mock).mockClear();
 
-		const checkbox = view.contentEl.querySelector(".em-completed-task .em-task-checkbox") as HTMLElement;
+		const checkbox = view.contentEl.querySelector(".pm-completed-task .pm-task-checkbox") as HTMLElement;
 		checkbox.click();
 		await flushPromises();
 
@@ -1744,7 +1744,7 @@ describe("delete from completed", () => {
 		plugin.completeTask(task.id);
 		view.renderMatrix();
 
-		const deleteBtn = view.contentEl.querySelector(".em-completed-task .em-task-delete") as HTMLElement;
+		const deleteBtn = view.contentEl.querySelector(".pm-completed-task .pm-task-delete") as HTMLElement;
 		deleteBtn.click();
 		await flushPromises();
 
@@ -1759,7 +1759,7 @@ describe("delete from completed", () => {
 		view.renderMatrix();
 		Notice.clear();
 
-		const deleteBtn = view.contentEl.querySelector(".em-completed-task .em-task-delete") as HTMLElement;
+		const deleteBtn = view.contentEl.querySelector(".pm-completed-task .pm-task-delete") as HTMLElement;
 		deleteBtn.click();
 		await flushPromises();
 
