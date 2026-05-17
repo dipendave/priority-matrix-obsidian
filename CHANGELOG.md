@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-05-16 19:00] - 2.0.3 — Address source/CSS lint warnings
+
+**Why:** Obsidian community directory flagged two warnings on 2.0.2.
+
+**Changed:**
+- `esbuild.config.mjs`: replaced `import builtins from "builtin-modules"` with `import { builtinModules as builtins } from "node:module"` — Node has had `module.builtinModules` built in since 16, no need for an external package
+- `package.json`: removed `builtin-modules` dev dependency (and regenerated `package-lock.json`)
+- `styles.css`: removed `!important` from `.pm-hidden` — replaced with doubled-class selector `.pm-hidden.pm-hidden { display: none }` which boosts specificity to (0,2,0) so it wins over any single-class display rule without `!important`
+
+**Verified:** 208 Jest + 48 Playwright tests pass, build clean
+
+**Files:**
+- `esbuild.config.mjs`
+- `package.json`, `package-lock.json`
+- `styles.css`
+
+---
+
 ## [2026-05-16 18:00] - 2.0.2 — Release notes + artifact attestations
 
 **Why:** Obsidian community directory flagged two recommendations on 2.0.1: no release description, and no GitHub artifact attestations on `main.js`/`styles.css`. Addressed both.

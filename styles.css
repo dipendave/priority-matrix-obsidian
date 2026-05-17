@@ -365,8 +365,10 @@
 }
 
 /* ===== ADD TASK FORM ===== */
-.pm-hidden {
-	display: none !important;
+/* Doubled class boosts specificity to (0,2,0) so this beats any single-class
+   display rule without needing !important. */
+.pm-hidden.pm-hidden {
+	display: none;
 }
 
 .pm-add-form {
