@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build:
@@ -24,6 +26,13 @@ jobs:
           npm install
           npm run build
 
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            main.js
+            styles.css
+
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -31,5 +40,6 @@ jobs:
           tag="${{ github.ref_name }}"
           gh release create "$tag" \
             --title="$tag" \
+            --generate-notes \
             --latest \
             main.js manifest.json styles.css

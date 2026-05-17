@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-task-priority-matrix",
-	"version": "2.0.1",
+	"version": "2.0.2",
 	"description": "Task Priority Matrix plugin for Obsidian (based on the Eisenhower Matrix method)",
 	"main": "main.js",
 	"scripts": {

@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-05-16 18:00] - 2.0.2 — Release notes + artifact attestations
+
+**Why:** Obsidian community directory flagged two recommendations on 2.0.1: no release description, and no GitHub artifact attestations on `main.js`/`styles.css`. Addressed both.
+
+**Changed:**
+- `.github/workflows/release.yml`:
+  - Added `id-token: write` and `attestations: write` permissions
+  - Added `actions/attest-build-provenance@v2` step for `main.js` and `styles.css`
+  - Added `--generate-notes` to `gh release create` so releases get auto-generated changelogs from commits
+
+**Files:**
+- `.github/workflows/release.yml`
+- `manifest.json`, `package.json`, `package-lock.json`, `versions.json` (bumped to 2.0.2)
+
+---
+
 ## [2026-05-16 17:00] - 2.0.1 — Rename id to task-priority-matrix
 
 **Why:** community.obsidian.md rejected the `priority-matrix` id with "An entry with this ID already exists." even though it's not in the public registry — likely a stale record in their submission queue. Picked a less-collision-prone id to unblock submission.
