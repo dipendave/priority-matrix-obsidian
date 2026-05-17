@@ -19,7 +19,7 @@ export default class PriorityMatrixPlugin extends Plugin {
 			(leaf: WorkspaceLeaf) => new PriorityMatrixView(leaf, this)
 		);
 
-		this.addRibbonIcon("layout-grid", "Priority matrix", () => {
+		this.addRibbonIcon("layout-grid", "Task priority matrix", () => {
 			void this.activateView();
 		});
 

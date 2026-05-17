@@ -105,7 +105,7 @@ describe("view identity", () => {
 
 	it("returns correct display text", () => {
 		const view = createView(createPlugin());
-		expect(view.getDisplayText()).toBe("Priority matrix");
+		expect(view.getDisplayText()).toBe("Task priority matrix");
 	});
 
 	it("returns correct icon", () => {

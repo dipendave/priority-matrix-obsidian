@@ -168,15 +168,15 @@ describe("Sentence case UI text", () => {
 		expect(match).not.toBeNull();
 		const text = match![1];
 		// First letter uppercase, rest should not be Title Case
-		// "Priority matrix" is correct sentence case
-		expect(text).toBe("Priority matrix");
+		// "Task priority matrix" is correct sentence case
+		expect(text).toBe("Task priority matrix");
 	});
 
 	test("ribbon icon tooltip uses sentence case", () => {
 		const match = mainTs.match(/addRibbonIcon\([^,]+,\s*"([^"]+)"/);
 		expect(match).not.toBeNull();
 		const text = match![1];
-		expect(text).toBe("Priority matrix");
+		expect(text).toBe("Task priority matrix");
 	});
 
 	test("command name uses sentence case", () => {

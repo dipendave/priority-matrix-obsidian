@@ -1,7 +1,7 @@
 {
-	"id": "priority-matrix",
-	"name": "Priority Matrix",
-	"version": "2.0.0",
+	"id": "task-priority-matrix",
+	"name": "Task Priority Matrix",
+	"version": "2.0.1",
 	"minAppVersion": "0.15.0",
 	"description": "A visual matrix for prioritizing tasks by urgency and importance, based on the Eisenhower Matrix method.",
 	"author": "Dipen",

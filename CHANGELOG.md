@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-05-16 17:00] - 2.0.1 — Rename id to task-priority-matrix
+
+**Why:** community.obsidian.md rejected the `priority-matrix` id with "An entry with this ID already exists." even though it's not in the public registry — likely a stale record in their submission queue. Picked a less-collision-prone id to unblock submission.
+
+**Changed:**
+- `manifest.json` id `priority-matrix` → `task-priority-matrix`
+- `manifest.json` name "Priority Matrix" → "Task Priority Matrix"
+- `package.json` name `obsidian-priority-matrix` → `obsidian-task-priority-matrix`
+- Display text + ribbon tooltip "Priority matrix" → "Task priority matrix"
+- README title and references updated
+- `.env.local` vault sync path updated
+
+**Not changed (intentional):**
+- CSS classes stay `pm-*` (internal, not user-visible)
+- TS classes stay `PriorityMatrix*` (internal)
+
+**Files:**
+- `manifest.json`, `package.json`, `package-lock.json`
+- `src/main.ts`, `src/view.ts`
+- `tests/community-compliance.test.ts`, `tests/view-integration.test.ts`
+- `README.md`, `.env.local`
+
+---
+
 ## [2026-05-16 12:00] - 2.0.0 — Rebrand to Priority Matrix
 
 **Why:** Another developer (`oamadorr/eisenhower-matrix-obsidian`) registered the `eisenhower-matrix` plugin ID first under Obsidian's new self-service submission flow after our PR #10188 to `obsidian-releases` was invalidated by that repo disabling PRs. Rebranded to avoid the conflict and clear the path to publishing.

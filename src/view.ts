@@ -28,7 +28,7 @@ export class PriorityMatrixView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "Priority matrix";
+		return "Task priority matrix";
 	}
 
 	getIcon(): string {

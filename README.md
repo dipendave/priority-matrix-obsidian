@@ -1,11 +1,11 @@
-# Priority Matrix for Obsidian
+# Task Priority Matrix for Obsidian
 
 Prioritize your tasks by urgency and importance, right inside Obsidian. Based on the classic Eisenhower Matrix method.
 
 ![Obsidian](https://img.shields.io/badge/Obsidian-0.15.0+-purple)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-![Desktop view of the Priority Matrix plugin](screenshots/desktop-populated.png)
+![Desktop view of the Task Priority Matrix plugin](screenshots/desktop-populated.png)
 
 ## Features
 
@@ -40,12 +40,12 @@ Prioritize your tasks by urgency and importance, right inside Obsidian. Based on
 
 1. Open **Settings > Community plugins** in Obsidian
 2. Turn off **Restricted mode** if prompted
-3. Click **Browse** and search for **Priority Matrix**
+3. Click **Browse** and search for **Task Priority Matrix**
 4. Click **Install**, then **Enable**
 
 ## Usage
 
-Open the matrix from the ribbon icon or the command palette (**Priority Matrix: Open matrix**).
+Open the matrix from the ribbon icon or the command palette (**Task Priority Matrix: Open matrix**).
 
 - **Add a task** — tap the **+** button in any quadrant
 - **Complete a task** — click the circle checkbox to mark it done
