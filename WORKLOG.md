@@ -39,3 +39,4 @@ Track of development iterations and time estimates.
 | 2026-05-16 17:00 | ~10min | Rename to Task Priority Matrix (id `task-priority-matrix`, 2.0.1) — `priority-matrix` was rejected as "already exists" by community.obsidian.md despite not being in public registry. Updated manifest/package/README/display text only, kept CSS pm-* and TS class names |
 | 2026-05-16 18:00 | ~5min | 2.0.2 — addressed Obsidian directory recommendations: workflow now uses `--generate-notes` and `actions/attest-build-provenance@v2` for cryptographic provenance on main.js and styles.css |
 | 2026-05-16 19:00 | ~5min | 2.0.3 — fixed lint warnings: replaced `builtin-modules` package with Node's `module.builtinModules`, removed `!important` from `.pm-hidden` via doubled-class specificity trick |
+| 2026-05-17 00:00 | ~2min | README — added Obsidian community directory badge + direct link below install steps |

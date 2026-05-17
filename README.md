@@ -2,6 +2,7 @@
 
 Prioritize your tasks by urgency and importance, right inside Obsidian. Based on the classic Eisenhower Matrix method.
 
+[![Obsidian Community Plugin](https://img.shields.io/badge/Obsidian-Community%20Plugin-7c5cbf?logo=obsidian&logoColor=white)](https://community.obsidian.md/plugins/task-priority-matrix)
 ![Obsidian](https://img.shields.io/badge/Obsidian-0.15.0+-purple)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
@@ -38,10 +39,14 @@ Prioritize your tasks by urgency and importance, right inside Obsidian. Based on
 
 ## Installation
 
-1. Open **Settings > Community plugins** in Obsidian
+**In Obsidian:**
+
+1. Open **Settings > Community plugins**
 2. Turn off **Restricted mode** if prompted
 3. Click **Browse** and search for **Task Priority Matrix**
 4. Click **Install**, then **Enable**
+
+**Direct link:** [community.obsidian.md/plugins/task-priority-matrix](https://community.obsidian.md/plugins/task-priority-matrix)
 
 ## Usage
 

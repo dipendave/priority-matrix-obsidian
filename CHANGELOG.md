@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-05-17 00:00] - README: link to community plugin page
+
+**Changed:**
+- Added clickable "Obsidian Community Plugin" badge linking to https://community.obsidian.md/plugins/task-priority-matrix
+- Added "Direct link" callout below the Installation steps
+
+**Files:**
+- `README.md`
+
+---
+
 ## [2026-05-16 19:00] - 2.0.3 — Address source/CSS lint warnings
 
 **Why:** Obsidian community directory flagged two warnings on 2.0.2.
