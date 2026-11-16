@@ -11,6 +11,25 @@ function createPlugin(): PriorityMatrixPlugin {
 	return plugin;
 }
 
+/** Titles of the active tasks in a quadrant, in display order */
+function titles(plugin: PriorityMatrixPlugin, quadrant: Quadrant): string[] {
+	return plugin.getTasksForQuadrant(quadrant).map((t) => t.title);
+}
+
+/** Order values of the active tasks in a quadrant, in display order */
+function orders(plugin: PriorityMatrixPlugin, quadrant: Quadrant): number[] {
+	return plugin.getTasksForQuadrant(quadrant).map((t) => t.order);
+}
+
+/** Add several tasks to one quadrant and return them keyed by title */
+function seed(plugin: PriorityMatrixPlugin, quadrant: Quadrant, names: string[]) {
+	const byTitle: Record<string, ReturnType<PriorityMatrixPlugin["addTask"]>> = {};
+	for (const name of names) {
+		byTitle[name] = plugin.addTask(name, quadrant, null);
+	}
+	return byTitle;
+}
+
 describe("PriorityMatrixPlugin", () => {
 	describe("addTask", () => {
 		it("adds a task to the data array", () => {
@@ -62,6 +81,30 @@ describe("PriorityMatrixPlugin", () => {
 			const t1 = plugin.addTask("A", Quadrant.Q1, null);
 			const t2 = plugin.addTask("B", Quadrant.Q1, null);
 			expect(t1.id).not.toBe(t2.id);
+		});
+		it("appends after the last task when earlier tasks were deleted", () => {
+			const plugin = createPlugin();
+			const a = plugin.addTask("A", Quadrant.Q1, null);
+			const b = plugin.addTask("B", Quadrant.Q1, null);
+			plugin.addTask("C", Quadrant.Q1, null);
+			plugin.addTask("D", Quadrant.Q1, null);
+			plugin.deleteTask(a.id);
+			plugin.deleteTask(b.id);
+
+			plugin.addTask("E", Quadrant.Q1, null);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["C", "D", "E"]);
+		});
+
+		it("appends after the last task when earlier tasks were completed", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C", "D"]);
+			plugin.completeTask(t.A.id);
+			plugin.completeTask(t.B.id);
+
+			plugin.addTask("E", Quadrant.Q1, null);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["C", "D", "E"]);
 		});
 	});
 
@@ -157,6 +200,298 @@ describe("PriorityMatrixPlugin", () => {
 			plugin.addTask("Stay", Quadrant.Q1, null);
 			plugin.moveTask("nonexistent", Quadrant.Q3);
 			expect(plugin.data.tasks[0].quadrant).toBe(Quadrant.Q1);
+		});
+
+		it("appends after the active tasks, ignoring completed ones", () => {
+			const plugin = createPlugin();
+			const done = plugin.addTask("Done in Q2", Quadrant.Q2, null);
+			plugin.addTask("Active in Q2", Quadrant.Q2, null);
+			plugin.completeTask(done.id);
+			const task = plugin.addTask("Moving", Quadrant.Q1, null);
+
+			plugin.moveTask(task.id, Quadrant.Q2);
+
+			expect(titles(plugin, Quadrant.Q2)).toEqual(["Active in Q2", "Moving"]);
+			expect(orders(plugin, Quadrant.Q2)).toEqual([0, 1]);
+		});
+
+		it("closes the gap left in the source quadrant", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C"]);
+
+			plugin.moveTask(t.A.id, Quadrant.Q3);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["B", "C"]);
+			expect(orders(plugin, Quadrant.Q1)).toEqual([0, 1]);
+		});
+	});
+
+	describe("moveTaskToIndex", () => {
+		it("moves a task down within its quadrant", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C", "D"]);
+
+			plugin.moveTaskToIndex(t.A.id, Quadrant.Q1, 2);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["B", "C", "A", "D"]);
+		});
+
+		it("moves a task up within its quadrant", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C", "D"]);
+
+			plugin.moveTaskToIndex(t.D.id, Quadrant.Q1, 1);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["A", "D", "B", "C"]);
+		});
+
+		it("moves a task to the first position", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C"]);
+
+			plugin.moveTaskToIndex(t.C.id, Quadrant.Q1, 0);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["C", "A", "B"]);
+		});
+
+		it("moves a task to the last position", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C"]);
+
+			plugin.moveTaskToIndex(t.A.id, Quadrant.Q1, 2);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["B", "C", "A"]);
+		});
+
+		it("swaps two adjacent tasks", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B"]);
+
+			plugin.moveTaskToIndex(t.A.id, Quadrant.Q1, 1);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["B", "A"]);
+		});
+
+		it("clamps an index past the end to the last position", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C"]);
+
+			plugin.moveTaskToIndex(t.A.id, Quadrant.Q1, 99);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["B", "C", "A"]);
+		});
+
+		it("clamps a negative index to the first position", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C"]);
+
+			plugin.moveTaskToIndex(t.C.id, Quadrant.Q1, -5);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["C", "A", "B"]);
+		});
+
+		it("treats a non-numeric index as the last position", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C"]);
+
+			plugin.moveTaskToIndex(t.A.id, Quadrant.Q1, NaN);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["B", "C", "A"]);
+		});
+
+		it("rounds a fractional index down", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C"]);
+
+			plugin.moveTaskToIndex(t.A.id, Quadrant.Q1, 1.9);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["B", "A", "C"]);
+		});
+
+		it("renumbers the quadrant to contiguous orders after a reorder", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C", "D"]);
+
+			plugin.moveTaskToIndex(t.D.id, Quadrant.Q1, 0);
+
+			expect(orders(plugin, Quadrant.Q1)).toEqual([0, 1, 2, 3]);
+			expect(t.D.order).toBe(0);
+			expect(t.A.order).toBe(1);
+		});
+
+		it("returns true when the order changed", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B"]);
+
+			expect(plugin.moveTaskToIndex(t.A.id, Quadrant.Q1, 1)).toBe(true);
+		});
+
+		it("returns false and changes nothing when the task is already at that position", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C"]);
+			const before = JSON.stringify(plugin.data.tasks);
+
+			expect(plugin.moveTaskToIndex(t.B.id, Quadrant.Q1, 1)).toBe(false);
+			expect(JSON.stringify(plugin.data.tasks)).toBe(before);
+		});
+
+		it("returns false for the only task in a quadrant", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A"]);
+
+			expect(plugin.moveTaskToIndex(t.A.id, Quadrant.Q1, 0)).toBe(false);
+			expect(plugin.moveTaskToIndex(t.A.id, Quadrant.Q1, 3)).toBe(false);
+		});
+
+		it("returns false and changes nothing for an unknown task ID", () => {
+			const plugin = createPlugin();
+			seed(plugin, Quadrant.Q1, ["A", "B"]);
+			const before = JSON.stringify(plugin.data.tasks);
+
+			expect(plugin.moveTaskToIndex("nonexistent", Quadrant.Q1, 0)).toBe(false);
+			expect(JSON.stringify(plugin.data.tasks)).toBe(before);
+		});
+
+		it("inserts at the given position when moving to another quadrant", () => {
+			const plugin = createPlugin();
+			const q1 = seed(plugin, Quadrant.Q1, ["A", "B"]);
+			seed(plugin, Quadrant.Q2, ["X", "Y", "Z"]);
+
+			const changed = plugin.moveTaskToIndex(q1.A.id, Quadrant.Q2, 1);
+
+			expect(changed).toBe(true);
+			expect(q1.A.quadrant).toBe(Quadrant.Q2);
+			expect(titles(plugin, Quadrant.Q2)).toEqual(["X", "A", "Y", "Z"]);
+		});
+
+		it("inserts first when moving to another quadrant at index 0", () => {
+			const plugin = createPlugin();
+			const q1 = seed(plugin, Quadrant.Q1, ["A"]);
+			seed(plugin, Quadrant.Q2, ["X", "Y"]);
+
+			plugin.moveTaskToIndex(q1.A.id, Quadrant.Q2, 0);
+
+			expect(titles(plugin, Quadrant.Q2)).toEqual(["A", "X", "Y"]);
+		});
+
+		it("renumbers both quadrants after a cross-quadrant move", () => {
+			const plugin = createPlugin();
+			const q1 = seed(plugin, Quadrant.Q1, ["A", "B", "C"]);
+			seed(plugin, Quadrant.Q2, ["X", "Y"]);
+
+			plugin.moveTaskToIndex(q1.A.id, Quadrant.Q2, 1);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["B", "C"]);
+			expect(orders(plugin, Quadrant.Q1)).toEqual([0, 1]);
+			expect(orders(plugin, Quadrant.Q2)).toEqual([0, 1, 2]);
+		});
+
+		it("moves into an empty quadrant regardless of the index", () => {
+			const plugin = createPlugin();
+			const q1 = seed(plugin, Quadrant.Q1, ["A", "B"]);
+
+			const changed = plugin.moveTaskToIndex(q1.B.id, Quadrant.Q4, 7);
+
+			expect(changed).toBe(true);
+			expect(titles(plugin, Quadrant.Q4)).toEqual(["B"]);
+			expect(q1.B.order).toBe(0);
+		});
+
+		it("leaves unrelated quadrants untouched", () => {
+			const plugin = createPlugin();
+			const q1 = seed(plugin, Quadrant.Q1, ["A", "B"]);
+			seed(plugin, Quadrant.Q3, ["M", "N"]);
+			const q3Before = JSON.stringify(plugin.getTasksForQuadrant(Quadrant.Q3));
+
+			plugin.moveTaskToIndex(q1.A.id, Quadrant.Q1, 1);
+
+			expect(JSON.stringify(plugin.getTasksForQuadrant(Quadrant.Q3))).toBe(q3Before);
+		});
+
+		it("positions among active tasks only, ignoring completed ones", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "Done", "B", "C"]);
+			plugin.completeTask(t.Done.id);
+
+			plugin.moveTaskToIndex(t.C.id, Quadrant.Q1, 1);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["A", "C", "B"]);
+			expect(orders(plugin, Quadrant.Q1)).toEqual([0, 1, 2]);
+		});
+
+		it("does not touch completed tasks when renumbering", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "Done", "B"]);
+			plugin.completeTask(t.Done.id);
+			const doneBefore = JSON.stringify(t.Done);
+
+			plugin.moveTaskToIndex(t.B.id, Quadrant.Q1, 0);
+
+			expect(JSON.stringify(t.Done)).toBe(doneBefore);
+		});
+
+		it("refuses to move a completed task", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B"]);
+			plugin.completeTask(t.A.id);
+			const before = JSON.stringify(plugin.data.tasks);
+
+			expect(plugin.moveTaskToIndex(t.A.id, Quadrant.Q2, 0)).toBe(false);
+			expect(JSON.stringify(plugin.data.tasks)).toBe(before);
+		});
+
+		it("repairs legacy data where every task has the same order", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C"]);
+			t.A.order = 0;
+			t.B.order = 0;
+			t.C.order = 0;
+
+			plugin.moveTaskToIndex(t.C.id, Quadrant.Q1, 0);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["C", "A", "B"]);
+			expect(orders(plugin, Quadrant.Q1)).toEqual([0, 1, 2]);
+		});
+
+		it("repairs legacy data with gaps in the order values", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C"]);
+			t.A.order = 2;
+			t.B.order = 5;
+			t.C.order = 9;
+
+			plugin.moveTaskToIndex(t.A.id, Quadrant.Q1, 1);
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["B", "A", "C"]);
+			expect(orders(plugin, Quadrant.Q1)).toEqual([0, 1, 2]);
+		});
+
+		it("keeps the new order after a save and reload", async () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C"]);
+			plugin.moveTaskToIndex(t.C.id, Quadrant.Q1, 0);
+
+			const saved = JSON.parse(JSON.stringify(plugin.data));
+			const reloaded = createPlugin();
+			reloaded.loadData = jest.fn().mockResolvedValue(saved);
+			await reloaded.loadPluginData();
+
+			expect(titles(reloaded, Quadrant.Q1)).toEqual(["C", "A", "B"]);
+		});
+
+		it("supports many reorders in a row without losing or duplicating tasks", () => {
+			const plugin = createPlugin();
+			const t = seed(plugin, Quadrant.Q1, ["A", "B", "C", "D", "E"]);
+
+			plugin.moveTaskToIndex(t.E.id, Quadrant.Q1, 0); // E A B C D
+			plugin.moveTaskToIndex(t.A.id, Quadrant.Q1, 4); // E B C D A
+			plugin.moveTaskToIndex(t.C.id, Quadrant.Q1, 1); // E C B D A
+			plugin.moveTaskToIndex(t.D.id, Quadrant.Q2, 0); // E C B A | D
+			plugin.moveTaskToIndex(t.D.id, Quadrant.Q1, 2); // E C D B A
+
+			expect(titles(plugin, Quadrant.Q1)).toEqual(["E", "C", "D", "B", "A"]);
+			expect(orders(plugin, Quadrant.Q1)).toEqual([0, 1, 2, 3, 4]);
+			expect(plugin.data.tasks).toHaveLength(5);
 		});
 	});
 

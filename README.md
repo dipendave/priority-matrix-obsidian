@@ -16,6 +16,7 @@ Prioritize your tasks by urgency and importance, right inside Obsidian. Based on
 | **Task completion** | Check off tasks with a single click — completed items move to a collapsible bin with timestamps |
 | **Revive or delete** | Uncomplete a task to send it back to its quadrant, or delete it permanently |
 | **Drag and drop** | Move tasks between quadrants on desktop. Long-press to drag on mobile |
+| **Reorder tasks** | Drag a task up or down to set its position — a line shows where it will land |
 | **Due dates** | Relative formatting (Today, Tomorrow, 3 days ago) with overdue highlighting |
 | **Inline editing** | Click any task to edit its title or due date in place |
 | **Task count badges** | Each quadrant header shows the number of active tasks at a glance |
@@ -55,7 +56,9 @@ Open the matrix from the ribbon icon or the command palette (**Task Priority Mat
 - **Add a task** — tap the **+** button in any quadrant
 - **Complete a task** — click the circle checkbox to mark it done
 - **Edit a task** — click on it to change the title or due date
-- **Move a task** — drag it to a different quadrant (long-press on mobile)
+- **Reorder a task** — drag it up or down within its quadrant (long-press on mobile). A line shows where it will land
+- **Move a task** — drag it to a different quadrant. It lands where you drop it, not at the end
+- **Drag past the edge of the screen** — on mobile, hold the task near the top or bottom edge and the view scrolls
 - **Revive a task** — click the green checkbox in the Completed section to bring it back
 - **Delete a task** — click the **x** button (undo within 5 seconds)
 
@@ -66,7 +69,7 @@ npm install
 npm run dev          # watch mode
 npm run build        # production build
 npm test             # unit tests (Jest)
-npm run test:mobile  # mobile layout tests (Playwright)
+npm run test:mobile  # layout and drag-and-drop tests in a real browser (Playwright)
 npm run screenshots  # regenerate README screenshots
 ```
 

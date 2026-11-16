@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-11-15 18:00] - 2.1.0 — Reorder tasks by drag and drop
+
+**Why:** [Issue #5](https://github.com/dipendave/priority-matrix-obsidian/issues/5) — the order of tasks within a quadrant could not be changed. Dragging only moved a task between quadrants and always appended it to the end.
+
+**Added:**
+- Drag a task up or down within its quadrant to reorder it (mouse on desktop, long-press on touch)
+- Drop indicator: an accent-coloured line shows where the task will land. It is hidden when the drop would change nothing
+- Touch auto-scroll: holding a dragged task within 60px of the top or bottom edge scrolls the view (phones) or the quadrant's list (wider screens), so off-screen positions are reachable
+- `moveTaskToIndex(taskId, quadrant, index)` in `src/main.ts` — places a task at a position and renumbers `order` to 0..n-1 in the affected quadrants
+- Browser test harness (`tests/harness/`) that runs the real view code in Chromium with the Obsidian mock, so Playwright can drive real touch and mouse input
+- `tests/styles.test.ts` — guards for CSS that Chromium cannot verify (iOS long-press rules) and the directory's no-`!important` rule
+
+**Changed:**
+- Dropping a task into another quadrant now inserts it where it is dropped, instead of always at the end
+- A drop that changes nothing no longer saves or re-renders
+- `moveTask()` now delegates to `moveTaskToIndex()`, so it ignores completed tasks when working out the end position and closes the gap it leaves in the source quadrant
+- First-run mobile hint now reads "Long-press a task to reorder it or drag it between quadrants"
+- Task rows set `user-select: none` and `-webkit-touch-callout: none` so a long-press drags instead of selecting text on iOS; the inline edit field stays selectable
+- Mobile Playwright projects now set `hasTouch: true`
+
+**Fixed:**
+- A new task could appear in the middle of a quadrant after earlier tasks were deleted or completed. `addTask()` assigned `order` from the task count, which collided with an existing task's order; it now uses the highest existing order plus one
+
+**Verified:** 333 Jest + 112 Playwright tests pass (59 more are skipped per viewport by design), build and lint clean. Real-browser tests run in Chromium with phone emulation, not iOS WebKit
+
+**Files:**
+- `src/main.ts`, `src/view.ts`, `styles.css`
+- `tests/main.test.ts`, `tests/view-integration.test.ts`, `tests/styles.test.ts`, `tests/reorder.spec.ts`
+- `tests/harness/entry.ts`, `tests/harness/index.html`, `tests/harness/global-setup.ts`
+- `playwright.config.ts`, `.gitignore`
+- `README.md`, `docs/design.md`
+- `manifest.json`, `package.json`, `package-lock.json`, `versions.json` (bumped to 2.1.0)
+
+---
+
 ## [2026-05-17 00:00] - README: link to community plugin page
 
 **Changed:**

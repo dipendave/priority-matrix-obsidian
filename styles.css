@@ -254,6 +254,17 @@
 	cursor: grab;
 	transition: opacity 0.15s, box-shadow 0.15s;
 	min-height: 36px;
+	/* A long-press starts a drag on touch screens. Without these the OS
+	   selects the task's text or shows its callout menu instead. */
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+}
+
+/* Text in the inline edit form must stay selectable and editable */
+.pm-task input {
+	-webkit-user-select: text;
+	user-select: text;
 }
 
 .pm-task:hover {
@@ -471,6 +482,27 @@
 	align-items: center;
 	justify-content: center;
 	flex: 1;
+}
+
+/* ===== DROP INDICATOR ===== */
+/* Marks where a dragged task will land. The element itself has no height, so
+   showing or moving it never shifts the tasks around it; the visible line is
+   drawn in the 4px gap above the task it sits before. */
+.pm-drop-indicator {
+	position: relative;
+	height: 0;
+	pointer-events: none;
+}
+
+.pm-drop-indicator::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: -4px;
+	height: 3px;
+	border-radius: 2px;
+	background: var(--interactive-accent);
 }
 
 /* ===== TOUCH CLONE ===== */

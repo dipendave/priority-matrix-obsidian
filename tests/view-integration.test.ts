@@ -80,6 +80,109 @@ function getFormCancelBtn(form: HTMLElement): HTMLElement {
 	return form.querySelector(".pm-form-cancel") as HTMLElement;
 }
 
+// ==================== Layout helpers ====================
+// jsdom has no layout engine: every getBoundingClientRect() is all zeros. The
+// drag code positions things by geometry, so these helpers hand each quadrant
+// and task a rectangle that matches a simple stacked layout.
+
+const QUADRANT_ORIGIN: Record<Quadrant, { left: number; top: number }> = {
+	[Quadrant.Q1]: { left: 0, top: 0 },
+	[Quadrant.Q2]: { left: 300, top: 0 },
+	[Quadrant.Q3]: { left: 0, top: 500 },
+	[Quadrant.Q4]: { left: 300, top: 500 },
+};
+const QUADRANT_WIDTH = 280;
+const QUADRANT_HEIGHT = 480;
+const TASK_HEIGHT = 40;
+const TASK_PITCH = 50; // 40px task + 10px gap
+const FIRST_TASK_OFFSET = 50; // header height
+
+function makeRect(left: number, top: number, width: number, height: number): DOMRect {
+	return {
+		left, top, width, height,
+		right: left + width,
+		bottom: top + height,
+		x: left, y: top,
+		toJSON: () => ({}),
+	} as DOMRect;
+}
+
+/** Top edge of the task at `index` in a quadrant */
+function taskTop(q: Quadrant, index: number): number {
+	return QUADRANT_ORIGIN[q].top + FIRST_TASK_OFFSET + index * TASK_PITCH;
+}
+
+/** A point in the upper half of the task at `index` — a drop here lands before it */
+function aboveMiddleOf(q: Quadrant, index: number): { x: number; y: number } {
+	return { x: QUADRANT_ORIGIN[q].left + 100, y: taskTop(q, index) + 5 };
+}
+
+/** A point in the lower half of the task at `index` — a drop here lands after it */
+function belowMiddleOf(q: Quadrant, index: number): { x: number; y: number } {
+	return { x: QUADRANT_ORIGIN[q].left + 100, y: taskTop(q, index) + TASK_HEIGHT - 5 };
+}
+
+/** A point inside a quadrant but below every task in it */
+function bottomOf(q: Quadrant): { x: number; y: number } {
+	return { x: QUADRANT_ORIGIN[q].left + 100, y: QUADRANT_ORIGIN[q].top + QUADRANT_HEIGHT - 10 };
+}
+
+/** Give the currently rendered quadrants and tasks their rectangles. Call again after a re-render. */
+function mockLayout(view: PriorityMatrixView): void {
+	for (const q of Object.values(Quadrant)) {
+		const qEl = getQuadrantByType(view, q);
+		if (!qEl) continue;
+		const origin = QUADRANT_ORIGIN[q];
+		qEl.getBoundingClientRect = () => makeRect(origin.left, origin.top, QUADRANT_WIDTH, QUADRANT_HEIGHT);
+		getTasksInQuadrant(view, q).forEach((taskEl, i) => {
+			taskEl.getBoundingClientRect = () => makeRect(origin.left + 10, taskTop(q, i), QUADRANT_WIDTH - 20, TASK_HEIGHT);
+		});
+	}
+}
+
+/** Titles of the rendered tasks in a quadrant, top to bottom */
+function renderedTitles(view: PriorityMatrixView, q: Quadrant): string[] {
+	return getTasksInQuadrant(view, q).map((el) => el.querySelector(".pm-task-title")!.textContent || "");
+}
+
+/** Titles of the stored active tasks in a quadrant, in order */
+function storedTitles(plugin: PriorityMatrixPlugin, q: Quadrant): string[] {
+	return plugin.getTasksForQuadrant(q).map((t) => t.title);
+}
+
+function getTaskElByTitle(view: PriorityMatrixView, title: string): HTMLElement {
+	const found = getTaskElements(view).find((el) => el.querySelector(".pm-task-title")?.textContent === title);
+	if (!found) throw new Error(`No rendered task titled "${title}"`);
+	return found;
+}
+
+function getIndicators(view: PriorityMatrixView): HTMLElement[] {
+	return Array.from(view.contentEl.querySelectorAll(".pm-drop-indicator"));
+}
+
+/** Title of the task the drop indicator sits directly above, or null if it is at the end of a list */
+function indicatorIsAbove(view: PriorityMatrixView): string | null {
+	const indicator = getIndicators(view)[0];
+	if (!indicator) throw new Error("No drop indicator is showing");
+	let next = indicator.nextElementSibling;
+	// The dragged task stays in the list while dragging; the indicator's position
+	// is relative to the tasks that are staying put.
+	while (next && next.classList.contains("pm-dragging")) next = next.nextElementSibling;
+	return next ? next.querySelector(".pm-task-title")!.textContent : null;
+}
+
+/** Seed one quadrant with tasks, render, and apply the synthetic layout */
+function setupWithTasks(tasksByQuadrant: Partial<Record<Quadrant, string[]>>) {
+	const plugin = createPlugin();
+	const view = createView(plugin);
+	for (const [q, names] of Object.entries(tasksByQuadrant)) {
+		for (const name of names!) plugin.addTask(name, q as Quadrant, null);
+	}
+	view.renderMatrix();
+	mockLayout(view);
+	return { plugin, view };
+}
+
 // ==================== Setup ====================
 
 beforeEach(() => {
@@ -140,7 +243,7 @@ describe("view lifecycle", () => {
 		await view.onOpen();
 
 		expect(Notice.instances).toHaveLength(1);
-		expect(Notice.instances[0].message).toBe("Long-press a task to drag it between quadrants");
+		expect(Notice.instances[0].message).toBe("Long-press a task to reorder it or drag it between quadrants");
 		expect(Notice.instances[0].duration).toBe(5000);
 	});
 
@@ -1081,6 +1184,1103 @@ describe("desktop drag and drop", () => {
 
 		const highlighted = view.contentEl.querySelectorAll(".pm-drop-target");
 		expect(highlighted).toHaveLength(0);
+	});
+});
+
+// ==================== I2. Desktop Reordering ====================
+
+describe("desktop reordering", () => {
+	function dragEvent(type: string, taskId: string, point?: { x: number; y: number }, relatedTarget?: Element | null): DragEvent {
+		const event = new Event(type, { bubbles: true, cancelable: true }) as any;
+		event.dataTransfer = {
+			setData: jest.fn(),
+			getData: jest.fn().mockReturnValue(taskId),
+			effectAllowed: "",
+			dropEffect: "",
+		};
+		if (point) {
+			event.clientX = point.x;
+			event.clientY = point.y;
+		}
+		event.relatedTarget = relatedTarget ?? null;
+		return event as DragEvent;
+	}
+
+	/** Start dragging a task, hover a point in a quadrant, and optionally drop there */
+	function drag(view: PriorityMatrixView, plugin: PriorityMatrixPlugin, title: string) {
+		const task = plugin.data.tasks.find((t) => t.title === title)!;
+		const taskEl = getTaskElByTitle(view, title);
+		taskEl.dispatchEvent(dragEvent("dragstart", task.id));
+		return {
+			over(q: Quadrant, point: { x: number; y: number }) {
+				getQuadrantByType(view, q).dispatchEvent(dragEvent("dragover", task.id, point));
+				return this;
+			},
+			drop(q: Quadrant, point: { x: number; y: number }) {
+				getQuadrantByType(view, q).dispatchEvent(dragEvent("drop", task.id, point));
+				taskEl.dispatchEvent(dragEvent("dragend", task.id));
+				return this;
+			},
+			end() {
+				taskEl.dispatchEvent(dragEvent("dragend", task.id));
+				return this;
+			},
+			taskEl,
+		};
+	}
+
+	describe("dropping within the same quadrant", () => {
+		it("moves the first task to the end when dropped below the last task", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "A").drop(Quadrant.Q1, belowMiddleOf(Quadrant.Q1, 2));
+
+			expect(storedTitles(plugin, Quadrant.Q1)).toEqual(["B", "C", "A"]);
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["B", "C", "A"]);
+		});
+
+		it("moves the last task to the top when dropped above the first task", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "C").drop(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0));
+
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["C", "A", "B"]);
+		});
+
+		it("moves a task down into the middle of the list", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C", "D"] });
+
+			drag(view, plugin, "A").drop(Quadrant.Q1, belowMiddleOf(Quadrant.Q1, 2));
+
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["B", "C", "A", "D"]);
+		});
+
+		it("moves a task up into the middle of the list", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C", "D"] });
+
+			drag(view, plugin, "D").drop(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 1));
+
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["A", "D", "B", "C"]);
+		});
+
+		it("moves a task to the end when dropped in the empty space below the list", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "A").drop(Quadrant.Q1, bottomOf(Quadrant.Q1));
+
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["B", "C", "A"]);
+		});
+
+		it("moves a task to the top when dropped on the quadrant header", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "C").drop(Quadrant.Q1, { x: 100, y: 10 });
+
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["C", "A", "B"]);
+		});
+
+		it("saves once after a reorder", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "A").drop(Quadrant.Q1, belowMiddleOf(Quadrant.Q1, 2));
+
+			expect(plugin.saveData).toHaveBeenCalledTimes(1);
+			const saved = (plugin.saveData as jest.Mock).mock.calls[0][0];
+			const savedOrder = saved.tasks
+				.slice()
+				.sort((a: any, b: any) => a.order - b.order)
+				.map((t: any) => t.title);
+			expect(savedOrder).toEqual(["B", "C", "A"]);
+		});
+
+		it("does not change other quadrants", () => {
+			const { plugin, view } = setupWithTasks({
+				[Quadrant.Q1]: ["A", "B", "C"],
+				[Quadrant.Q2]: ["X", "Y"],
+			});
+
+			drag(view, plugin, "A").drop(Quadrant.Q1, belowMiddleOf(Quadrant.Q1, 2));
+
+			expect(renderedTitles(view, Quadrant.Q2)).toEqual(["X", "Y"]);
+		});
+
+		it("keeps the task count badge unchanged", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "A").drop(Quadrant.Q1, belowMiddleOf(Quadrant.Q1, 2));
+
+			const badge = getQuadrantByType(view, Quadrant.Q1).querySelector(".pm-task-count");
+			expect(badge!.textContent!.trim()).toBe("3");
+		});
+
+		it("keeps the new order across a later re-render", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+			drag(view, plugin, "C").drop(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0));
+
+			view.renderMatrix();
+
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["C", "A", "B"]);
+		});
+
+		it("puts a task added after a reorder at the end", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+			drag(view, plugin, "C").drop(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0));
+
+			addTaskAndRender(view, plugin, "New", Quadrant.Q1);
+
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["C", "A", "B", "New"]);
+		});
+
+		it("supports several reorders in a row", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C", "D"] });
+
+			drag(view, plugin, "D").drop(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0)); // D A B C
+			mockLayout(view);
+			drag(view, plugin, "A").drop(Quadrant.Q1, belowMiddleOf(Quadrant.Q1, 3)); // D B C A
+			mockLayout(view);
+			drag(view, plugin, "C").drop(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 1)); // D C B A
+
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["D", "C", "B", "A"]);
+		});
+	});
+
+	describe("dropping a task where it already is", () => {
+		const cases: [string, () => { x: number; y: number }][] = [
+			["on itself", () => aboveMiddleOf(Quadrant.Q1, 1)],
+			["on the lower half of the task above it", () => belowMiddleOf(Quadrant.Q1, 0)],
+			["on the upper half of the task below it", () => aboveMiddleOf(Quadrant.Q1, 2)],
+		];
+
+		it.each(cases)("does not save or re-render when dropped %s", (_name, point) => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const renderSpy = jest.spyOn(view, "renderMatrix");
+
+			drag(view, plugin, "B").drop(Quadrant.Q1, point());
+
+			expect(plugin.saveData).not.toHaveBeenCalled();
+			expect(renderSpy).not.toHaveBeenCalled();
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["A", "B", "C"]);
+		});
+
+		it("does not save when the only task in a quadrant is dropped back", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["Solo"] });
+
+			drag(view, plugin, "Solo").drop(Quadrant.Q1, bottomOf(Quadrant.Q1));
+
+			expect(plugin.saveData).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("drop indicator", () => {
+		it("is not shown before a drag starts", () => {
+			const { view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+			expect(getIndicators(view)).toHaveLength(0);
+		});
+
+		it("appears above the task the drop would land before", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "C").over(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 1));
+
+			expect(getIndicators(view)).toHaveLength(1);
+			expect(indicatorIsAbove(view)).toBe("B");
+		});
+
+		it("appears at the end of the list when the drop would land last", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "A").over(Quadrant.Q1, bottomOf(Quadrant.Q1));
+
+			expect(indicatorIsAbove(view)).toBeNull();
+			const list = getQuadrantByType(view, Quadrant.Q1).querySelector(".pm-task-list")!;
+			expect(list.lastElementChild!.classList.contains("pm-drop-indicator")).toBe(true);
+		});
+
+		it("appears at the top of the list when the drop would land first", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "C").over(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0));
+
+			const list = getQuadrantByType(view, Quadrant.Q1).querySelector(".pm-task-list")!;
+			expect(list.firstElementChild!.classList.contains("pm-drop-indicator")).toBe(true);
+		});
+
+		it("lives inside the hovered quadrant's task list", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "C").over(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0));
+
+			const list = getQuadrantByType(view, Quadrant.Q1).querySelector(".pm-task-list");
+			expect(getIndicators(view)[0].parentElement).toBe(list);
+		});
+
+		it("follows the pointer and never duplicates", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C", "D"] });
+			const d = drag(view, plugin, "D");
+
+			d.over(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0));
+			expect(indicatorIsAbove(view)).toBe("A");
+			d.over(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 1));
+			expect(indicatorIsAbove(view)).toBe("B");
+			d.over(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 2));
+			expect(indicatorIsAbove(view)).toBe("C");
+
+			expect(getIndicators(view)).toHaveLength(1);
+		});
+
+		it.each([
+			["over the dragged task itself", () => aboveMiddleOf(Quadrant.Q1, 1)],
+			["over the lower half of the task above", () => belowMiddleOf(Quadrant.Q1, 0)],
+			["over the upper half of the task below", () => aboveMiddleOf(Quadrant.Q1, 2)],
+		])("is hidden when hovering %s, because nothing would move", (_name, point) => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "B").over(Quadrant.Q1, point());
+
+			expect(getIndicators(view)).toHaveLength(0);
+		});
+
+		it("disappears when the pointer returns to the task's own position", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const d = drag(view, plugin, "B");
+			d.over(Quadrant.Q1, bottomOf(Quadrant.Q1));
+			expect(getIndicators(view)).toHaveLength(1);
+
+			d.over(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 1));
+
+			expect(getIndicators(view)).toHaveLength(0);
+		});
+
+		it("is removed when the drag ends without a drop", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "C").over(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0)).end();
+
+			expect(getIndicators(view)).toHaveLength(0);
+		});
+
+		it("is removed after a drop that changes nothing", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const d = drag(view, plugin, "B");
+			d.over(Quadrant.Q1, bottomOf(Quadrant.Q1));
+
+			d.drop(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 1));
+
+			expect(getIndicators(view)).toHaveLength(0);
+		});
+
+		it("is removed after a successful drop", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "C")
+				.over(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0))
+				.drop(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0));
+
+			expect(getIndicators(view)).toHaveLength(0);
+		});
+
+		it("is removed when the pointer leaves the quadrant", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const task = plugin.data.tasks.find((t) => t.title === "C")!;
+			drag(view, plugin, "C").over(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0));
+
+			const q1 = getQuadrantByType(view, Quadrant.Q1);
+			q1.dispatchEvent(dragEvent("dragleave", task.id, undefined, document.body));
+
+			expect(getIndicators(view)).toHaveLength(0);
+		});
+
+		it("stays when the pointer only moves onto a child of the quadrant", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const task = plugin.data.tasks.find((t) => t.title === "C")!;
+			drag(view, plugin, "C").over(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0));
+
+			const q1 = getQuadrantByType(view, Quadrant.Q1);
+			const child = q1.querySelector(".pm-quadrant-header")!;
+			q1.dispatchEvent(dragEvent("dragleave", task.id, undefined, child));
+
+			expect(getIndicators(view)).toHaveLength(1);
+		});
+
+		it("moves to the other quadrant when the pointer crosses over", () => {
+			const { plugin, view } = setupWithTasks({
+				[Quadrant.Q1]: ["A", "B"],
+				[Quadrant.Q2]: ["X", "Y"],
+			});
+			const d = drag(view, plugin, "A");
+			d.over(Quadrant.Q1, bottomOf(Quadrant.Q1));
+
+			d.over(Quadrant.Q2, aboveMiddleOf(Quadrant.Q2, 1));
+
+			expect(getIndicators(view)).toHaveLength(1);
+			const q2List = getQuadrantByType(view, Quadrant.Q2).querySelector(".pm-task-list");
+			expect(getIndicators(view)[0].parentElement).toBe(q2List);
+			expect(indicatorIsAbove(view)).toBe("Y");
+		});
+
+		it("is not shown over an empty quadrant, which is highlighted instead", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B"] });
+
+			drag(view, plugin, "A").over(Quadrant.Q3, bottomOf(Quadrant.Q3));
+
+			expect(getIndicators(view)).toHaveLength(0);
+			expect(getQuadrantByType(view, Quadrant.Q3).classList.contains("pm-drop-target")).toBe(true);
+		});
+
+		it("is not shown for a drag that did not start on a task", () => {
+			const { view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			getQuadrantByType(view, Quadrant.Q1).dispatchEvent(
+				dragEvent("dragover", "", aboveMiddleOf(Quadrant.Q1, 0))
+			);
+
+			expect(getIndicators(view)).toHaveLength(0);
+		});
+
+		it("does not count as a task", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			drag(view, plugin, "C").over(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0));
+
+			expect(getTasksInQuadrant(view, Quadrant.Q1)).toHaveLength(3);
+			expect(getIndicators(view)[0].classList.contains("pm-task")).toBe(false);
+		});
+	});
+
+	describe("dropping into another quadrant", () => {
+		it("inserts between two tasks at the drop position", () => {
+			const { plugin, view } = setupWithTasks({
+				[Quadrant.Q1]: ["A", "B"],
+				[Quadrant.Q2]: ["X", "Y", "Z"],
+			});
+
+			drag(view, plugin, "A").drop(Quadrant.Q2, aboveMiddleOf(Quadrant.Q2, 1));
+
+			expect(renderedTitles(view, Quadrant.Q2)).toEqual(["X", "A", "Y", "Z"]);
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["B"]);
+		});
+
+		it("inserts first when dropped above the first task", () => {
+			const { plugin, view } = setupWithTasks({
+				[Quadrant.Q1]: ["A"],
+				[Quadrant.Q2]: ["X", "Y"],
+			});
+
+			drag(view, plugin, "A").drop(Quadrant.Q2, aboveMiddleOf(Quadrant.Q2, 0));
+
+			expect(renderedTitles(view, Quadrant.Q2)).toEqual(["A", "X", "Y"]);
+		});
+
+		it("appends when dropped below every task", () => {
+			const { plugin, view } = setupWithTasks({
+				[Quadrant.Q1]: ["A"],
+				[Quadrant.Q2]: ["X", "Y"],
+			});
+
+			drag(view, plugin, "A").drop(Quadrant.Q2, bottomOf(Quadrant.Q2));
+
+			expect(renderedTitles(view, Quadrant.Q2)).toEqual(["X", "Y", "A"]);
+		});
+
+		it("moves into an empty quadrant", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B"] });
+
+			drag(view, plugin, "B").drop(Quadrant.Q4, bottomOf(Quadrant.Q4));
+
+			expect(renderedTitles(view, Quadrant.Q4)).toEqual(["B"]);
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["A"]);
+		});
+
+		it("saves once", () => {
+			const { plugin, view } = setupWithTasks({
+				[Quadrant.Q1]: ["A"],
+				[Quadrant.Q2]: ["X", "Y"],
+			});
+
+			drag(view, plugin, "A").drop(Quadrant.Q2, aboveMiddleOf(Quadrant.Q2, 1));
+
+			expect(plugin.saveData).toHaveBeenCalledTimes(1);
+		});
+
+		it("updates both task count badges", () => {
+			const { plugin, view } = setupWithTasks({
+				[Quadrant.Q1]: ["A", "B"],
+				[Quadrant.Q2]: ["X"],
+			});
+
+			drag(view, plugin, "A").drop(Quadrant.Q2, aboveMiddleOf(Quadrant.Q2, 0));
+
+			const count = (q: Quadrant) =>
+				getQuadrantByType(view, q).querySelector(".pm-task-count")!.textContent!.trim();
+			expect(count(Quadrant.Q1)).toBe("1");
+			expect(count(Quadrant.Q2)).toBe("2");
+		});
+	});
+
+	describe("interaction with other features", () => {
+		it("ignores a drop whose task ID is unknown", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B"] });
+
+			getQuadrantByType(view, Quadrant.Q1).dispatchEvent(
+				dragEvent("drop", "not-a-task", bottomOf(Quadrant.Q1))
+			);
+
+			expect(plugin.saveData).not.toHaveBeenCalled();
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["A", "B"]);
+		});
+
+		it("positions around a task that is being edited", () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+			(getTaskElByTitle(view, "B").querySelector(".pm-task-content") as HTMLElement).click();
+
+			const task = plugin.data.tasks.find((t) => t.title === "A")!;
+			const aEl = getTasksInQuadrant(view, Quadrant.Q1)[0];
+			aEl.dispatchEvent(dragEvent("dragstart", task.id));
+			getQuadrantByType(view, Quadrant.Q1).dispatchEvent(
+				dragEvent("drop", task.id, bottomOf(Quadrant.Q1))
+			);
+
+			expect(storedTitles(plugin, Quadrant.Q1)).toEqual(["B", "C", "A"]);
+		});
+
+		it("restores a completed task without disturbing a reordered list", async () => {
+			const { plugin, view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B", "C"] });
+			drag(view, plugin, "C").drop(Quadrant.Q1, aboveMiddleOf(Quadrant.Q1, 0)); // C A B
+
+			const b = plugin.data.tasks.find((t) => t.title === "B")!;
+			plugin.completeTask(b.id);
+			plugin.uncompleteTask(b.id);
+			view.renderMatrix();
+
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["C", "A", "B"]);
+		});
+	});
+});
+
+// ==================== I3. Touch Drag & Drop ====================
+
+describe("touch drag and drop", () => {
+	const LONG_PRESS_MS = 250;
+	let frames: Map<number, FrameRequestCallback>;
+	let nextFrameId: number;
+
+	/** Run every animation frame callback that is currently queued */
+	function runFrame(): void {
+		const pending = Array.from(frames.values());
+		frames.clear();
+		pending.forEach((cb) => cb(0));
+	}
+
+	beforeEach(() => {
+		jest.useFakeTimers();
+		// Queue animation frames instead of running them inline, so the
+		// auto-scroll loop can be stepped one frame at a time.
+		frames = new Map();
+		nextFrameId = 1;
+		global.requestAnimationFrame = jest.fn((cb: FrameRequestCallback) => {
+			const id = nextFrameId++;
+			frames.set(id, cb);
+			return id;
+		}) as any;
+		global.cancelAnimationFrame = jest.fn((id: number) => {
+			frames.delete(id);
+		}) as any;
+	});
+
+	afterEach(() => {
+		jest.useRealTimers();
+		document.body.innerHTML = "";
+		delete (navigator as any).vibrate;
+	});
+
+	function touchEvent(type: string, points: { x: number; y: number }[]): TouchEvent {
+		const event = new Event(type, { bubbles: true, cancelable: true }) as any;
+		const list = points.map((p) => ({ clientX: p.x, clientY: p.y }));
+		// On touchend the lifted finger is only in changedTouches
+		event.touches = type === "touchend" || type === "touchcancel" ? [] : list;
+		event.changedTouches = list;
+		return event as TouchEvent;
+	}
+
+	function getClone(): HTMLElement | null {
+		return document.body.querySelector(".pm-touch-clone");
+	}
+
+	/** Seed, render, attach the view to the document, and apply the synthetic layout */
+	function setupTouch(tasksByQuadrant: Partial<Record<Quadrant, string[]>>) {
+		const result = setupWithTasks(tasksByQuadrant);
+		document.body.appendChild(result.view.contentEl);
+		return result;
+	}
+
+	/** Press a finger on a task and hold until the long-press fires */
+	function longPress(view: PriorityMatrixView, title: string, q: Quadrant, index: number) {
+		const taskEl = getTaskElByTitle(view, title);
+		const start = { x: QUADRANT_ORIGIN[q].left + 100, y: taskTop(q, index) + TASK_HEIGHT / 2 };
+		taskEl.dispatchEvent(touchEvent("touchstart", [start]));
+		jest.advanceTimersByTime(LONG_PRESS_MS);
+		return {
+			taskEl,
+			start,
+			moveTo(point: { x: number; y: number }) {
+				const event = touchEvent("touchmove", [point]);
+				taskEl.dispatchEvent(event);
+				return event;
+			},
+			release(point: { x: number; y: number }) {
+				taskEl.dispatchEvent(touchEvent("touchend", [point]));
+			},
+			cancel() {
+				taskEl.dispatchEvent(touchEvent("touchcancel", []));
+			},
+		};
+	}
+
+	describe("starting a drag", () => {
+		it("starts after a long-press: shows a floating copy and dims the task", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+
+			expect(getClone()).not.toBeNull();
+			expect(getClone()!.textContent).toContain("A");
+			expect(press.taskEl.classList.contains("pm-dragging")).toBe(true);
+		});
+
+		it("does not start before the long-press delay has passed", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const taskEl = getTaskElByTitle(view, "A");
+
+			taskEl.dispatchEvent(touchEvent("touchstart", [{ x: 100, y: 70 }]));
+			jest.advanceTimersByTime(LONG_PRESS_MS - 1);
+
+			expect(getClone()).toBeNull();
+			expect(taskEl.classList.contains("pm-dragging")).toBe(false);
+		});
+
+		it("does not start for a quick tap", () => {
+			const { plugin, view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const taskEl = getTaskElByTitle(view, "A");
+
+			taskEl.dispatchEvent(touchEvent("touchstart", [{ x: 100, y: 70 }]));
+			jest.advanceTimersByTime(100);
+			taskEl.dispatchEvent(touchEvent("touchend", [bottomOf(Quadrant.Q1)]));
+			jest.advanceTimersByTime(LONG_PRESS_MS);
+
+			expect(getClone()).toBeNull();
+			expect(storedTitles(plugin, Quadrant.Q1)).toEqual(["A", "B", "C"]);
+			expect(plugin.saveData).not.toHaveBeenCalled();
+		});
+
+		it("does not start when the finger moves first, so the page can scroll", () => {
+			const { plugin, view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const taskEl = getTaskElByTitle(view, "A");
+
+			taskEl.dispatchEvent(touchEvent("touchstart", [{ x: 100, y: 70 }]));
+			const scrollMove = touchEvent("touchmove", [{ x: 100, y: 95 }]);
+			taskEl.dispatchEvent(scrollMove);
+			jest.advanceTimersByTime(LONG_PRESS_MS);
+			taskEl.dispatchEvent(touchEvent("touchend", [bottomOf(Quadrant.Q1)]));
+
+			expect(scrollMove.defaultPrevented).toBe(false);
+			expect(getClone()).toBeNull();
+			expect(storedTitles(plugin, Quadrant.Q1)).toEqual(["A", "B", "C"]);
+		});
+
+		it("still starts when the finger only wobbles a few pixels", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const taskEl = getTaskElByTitle(view, "A");
+
+			taskEl.dispatchEvent(touchEvent("touchstart", [{ x: 100, y: 70 }]));
+			taskEl.dispatchEvent(touchEvent("touchmove", [{ x: 104, y: 75 }]));
+			jest.advanceTimersByTime(LONG_PRESS_MS);
+
+			expect(getClone()).not.toBeNull();
+		});
+
+		it("does not start for a two-finger touch", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const taskEl = getTaskElByTitle(view, "A");
+
+			taskEl.dispatchEvent(touchEvent("touchstart", [{ x: 100, y: 70 }, { x: 150, y: 70 }]));
+			jest.advanceTimersByTime(LONG_PRESS_MS);
+
+			expect(getClone()).toBeNull();
+		});
+
+		it("vibrates when the drag starts on devices that support it", () => {
+			const vibrate = jest.fn();
+			(navigator as any).vibrate = vibrate;
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B"] });
+
+			longPress(view, "A", Quadrant.Q1, 0);
+
+			expect(vibrate).toHaveBeenCalledTimes(1);
+		});
+
+		it("starts without error on devices that cannot vibrate (iOS)", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B"] });
+			expect((navigator as any).vibrate).toBeUndefined();
+
+			expect(() => longPress(view, "A", Quadrant.Q1, 0)).not.toThrow();
+			expect(getClone()).not.toBeNull();
+		});
+
+		it("does not start on a task that is being edited", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B"] });
+			const taskEl = getTaskElByTitle(view, "A");
+			(taskEl.querySelector(".pm-task-content") as HTMLElement).click();
+			const input = taskEl.querySelector(".pm-task-input") as HTMLElement;
+
+			input.dispatchEvent(touchEvent("touchstart", [{ x: 100, y: 70 }]));
+			jest.advanceTimersByTime(LONG_PRESS_MS);
+
+			expect(getClone()).toBeNull();
+		});
+	});
+
+	describe("while dragging", () => {
+		it("blocks page scrolling", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+
+			const move = press.moveTo(belowMiddleOf(Quadrant.Q1, 1));
+
+			expect(move.defaultPrevented).toBe(true);
+		});
+
+		it("moves the floating copy with the finger", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			const before = { left: getClone()!.style.left, top: getClone()!.style.top };
+
+			press.moveTo({ x: 180, y: 200 });
+
+			expect(getClone()!.style.left).not.toBe(before.left);
+			expect(getClone()!.style.top).not.toBe(before.top);
+		});
+
+		it("highlights the quadrant under the finger and only that one", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B"], [Quadrant.Q2]: ["X"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+
+			press.moveTo(bottomOf(Quadrant.Q1));
+			press.moveTo(bottomOf(Quadrant.Q2));
+
+			const highlighted = Array.from(view.contentEl.querySelectorAll(".pm-drop-target"));
+			expect(highlighted).toHaveLength(1);
+			expect(highlighted[0].getAttribute("data-quadrant")).toBe(Quadrant.Q2);
+		});
+
+		it("shows the drop indicator where the task would land", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+
+			press.moveTo(belowMiddleOf(Quadrant.Q1, 1));
+
+			expect(getIndicators(view)).toHaveLength(1);
+			expect(indicatorIsAbove(view)).toBe("C");
+		});
+
+		it("moves the indicator as the finger moves", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C", "D"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+
+			press.moveTo(belowMiddleOf(Quadrant.Q1, 1));
+			expect(indicatorIsAbove(view)).toBe("C");
+			press.moveTo(belowMiddleOf(Quadrant.Q1, 2));
+			expect(indicatorIsAbove(view)).toBe("D");
+			press.moveTo(bottomOf(Quadrant.Q1));
+			expect(indicatorIsAbove(view)).toBeNull();
+
+			expect(getIndicators(view)).toHaveLength(1);
+		});
+
+		it("hides the indicator over the task's own position", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "B", Quadrant.Q1, 1);
+			press.moveTo(bottomOf(Quadrant.Q1));
+			expect(getIndicators(view)).toHaveLength(1);
+
+			press.moveTo(belowMiddleOf(Quadrant.Q1, 0));
+
+			expect(getIndicators(view)).toHaveLength(0);
+		});
+
+		it("shows the indicator in another quadrant at the insertion point", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A"], [Quadrant.Q2]: ["X", "Y"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+
+			press.moveTo(aboveMiddleOf(Quadrant.Q2, 1));
+
+			const q2List = getQuadrantByType(view, Quadrant.Q2).querySelector(".pm-task-list");
+			expect(getIndicators(view)[0].parentElement).toBe(q2List);
+			expect(indicatorIsAbove(view)).toBe("Y");
+		});
+
+		it("hides the indicator and highlight when the finger is outside every quadrant", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo(bottomOf(Quadrant.Q1));
+
+			press.moveTo({ x: 290, y: 490 }); // the gap between the quadrants
+
+			expect(getIndicators(view)).toHaveLength(0);
+			expect(view.contentEl.querySelectorAll(".pm-drop-target")).toHaveLength(0);
+		});
+	});
+
+	describe("dropping", () => {
+		it("moves a task down within its quadrant", () => {
+			const { plugin, view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo(bottomOf(Quadrant.Q1));
+
+			press.release(bottomOf(Quadrant.Q1));
+
+			expect(storedTitles(plugin, Quadrant.Q1)).toEqual(["B", "C", "A"]);
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["B", "C", "A"]);
+		});
+
+		it("moves a task up within its quadrant", () => {
+			const { plugin, view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "C", Quadrant.Q1, 2);
+			press.moveTo(aboveMiddleOf(Quadrant.Q1, 0));
+
+			press.release(aboveMiddleOf(Quadrant.Q1, 0));
+
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["C", "A", "B"]);
+			expect(storedTitles(plugin, Quadrant.Q1)).toEqual(["C", "A", "B"]);
+		});
+
+		it("moves a task into the middle of its quadrant", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C", "D"] });
+			const press = longPress(view, "D", Quadrant.Q1, 3);
+			press.moveTo(aboveMiddleOf(Quadrant.Q1, 1));
+
+			press.release(aboveMiddleOf(Quadrant.Q1, 1));
+
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["A", "D", "B", "C"]);
+		});
+
+		it("lands where the indicator was showing", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C", "D"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo(belowMiddleOf(Quadrant.Q1, 2));
+			const landsBefore = indicatorIsAbove(view);
+
+			press.release(belowMiddleOf(Quadrant.Q1, 2));
+
+			const titlesAfter = renderedTitles(view, Quadrant.Q1);
+			expect(titlesAfter[titlesAfter.indexOf("A") + 1]).toBe(landsBefore);
+		});
+
+		it("saves once after a reorder", () => {
+			const { plugin, view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo(bottomOf(Quadrant.Q1));
+
+			press.release(bottomOf(Quadrant.Q1));
+
+			expect(plugin.saveData).toHaveBeenCalledTimes(1);
+		});
+
+		it("does not save when released at its own position", () => {
+			const { plugin, view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "B", Quadrant.Q1, 1);
+			press.moveTo(belowMiddleOf(Quadrant.Q1, 0));
+
+			press.release(belowMiddleOf(Quadrant.Q1, 0));
+
+			expect(plugin.saveData).not.toHaveBeenCalled();
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["A", "B", "C"]);
+		});
+
+		it("does not save when released without moving at all", () => {
+			const { plugin, view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "B", Quadrant.Q1, 1);
+
+			press.release(press.start);
+
+			expect(plugin.saveData).not.toHaveBeenCalled();
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["A", "B", "C"]);
+		});
+
+		it("inserts at the drop position in another quadrant", () => {
+			const { plugin, view } = setupTouch({
+				[Quadrant.Q1]: ["A", "B"],
+				[Quadrant.Q3]: ["X", "Y", "Z"],
+			});
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo(aboveMiddleOf(Quadrant.Q3, 2));
+
+			press.release(aboveMiddleOf(Quadrant.Q3, 2));
+
+			expect(renderedTitles(view, Quadrant.Q3)).toEqual(["X", "Y", "A", "Z"]);
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["B"]);
+			expect(plugin.saveData).toHaveBeenCalledTimes(1);
+		});
+
+		it("moves into an empty quadrant", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo(bottomOf(Quadrant.Q4));
+
+			press.release(bottomOf(Quadrant.Q4));
+
+			expect(renderedTitles(view, Quadrant.Q4)).toEqual(["A"]);
+		});
+
+		it("changes nothing when released outside every quadrant", () => {
+			const { plugin, view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo({ x: 290, y: 490 });
+
+			press.release({ x: 290, y: 490 });
+
+			expect(plugin.saveData).not.toHaveBeenCalled();
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["A", "B", "C"]);
+		});
+
+		it("removes the floating copy, indicator and highlight afterwards", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo(bottomOf(Quadrant.Q1));
+
+			press.release(bottomOf(Quadrant.Q1));
+
+			expect(getClone()).toBeNull();
+			expect(getIndicators(view)).toHaveLength(0);
+			expect(view.contentEl.querySelectorAll(".pm-drop-target")).toHaveLength(0);
+			expect(view.contentEl.querySelectorAll(".pm-dragging")).toHaveLength(0);
+		});
+
+		it("allows a second drag straight after the first", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const first = longPress(view, "A", Quadrant.Q1, 0);
+			first.moveTo(bottomOf(Quadrant.Q1));
+			first.release(bottomOf(Quadrant.Q1)); // B C A
+			mockLayout(view);
+
+			const second = longPress(view, "C", Quadrant.Q1, 1);
+			second.moveTo(aboveMiddleOf(Quadrant.Q1, 0));
+			second.release(aboveMiddleOf(Quadrant.Q1, 0));
+
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["C", "B", "A"]);
+		});
+	});
+
+	describe("cancelling", () => {
+		it("changes nothing and cleans up when the system cancels the touch", () => {
+			const { plugin, view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo(bottomOf(Quadrant.Q1));
+
+			press.cancel();
+
+			expect(plugin.saveData).not.toHaveBeenCalled();
+			expect(renderedTitles(view, Quadrant.Q1)).toEqual(["A", "B", "C"]);
+			expect(getClone()).toBeNull();
+			expect(getIndicators(view)).toHaveLength(0);
+			expect(view.contentEl.querySelectorAll(".pm-drop-target")).toHaveLength(0);
+			expect(press.taskEl.classList.contains("pm-dragging")).toBe(false);
+		});
+
+		it("cleans up when the view closes mid-drag", async () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo(bottomOf(Quadrant.Q1));
+
+			await view.onClose();
+
+			expect(getClone()).toBeNull();
+			expect(getIndicators(view)).toHaveLength(0);
+		});
+	});
+
+	describe("auto-scroll near the edges", () => {
+		/** Make an element behave like a scroll container of the given visible box */
+		function makeScrollable(el: HTMLElement, box: { top: number; height: number }, contentHeight: number, overflowY = "auto") {
+			el.style.overflowY = overflowY;
+			Object.defineProperty(el, "scrollHeight", { configurable: true, value: contentHeight });
+			Object.defineProperty(el, "clientHeight", { configurable: true, value: box.height });
+			el.getBoundingClientRect = () => makeRect(0, box.top, 600, box.height);
+		}
+
+		/** A phone-like setup: the whole view is the one scroll container, 600px tall */
+		function setupPhone() {
+			const result = setupTouch({ [Quadrant.Q1]: ["A", "B", "C", "D", "E", "F"] });
+			makeScrollable(result.view.contentEl, { top: 0, height: 600 }, 2000);
+			result.view.contentEl.scrollTop = 300;
+			return result;
+		}
+
+		it("scrolls down while the finger is held near the bottom edge", () => {
+			const { view } = setupPhone();
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+
+			press.moveTo({ x: 100, y: 590 });
+			runFrame();
+
+			expect(view.contentEl.scrollTop).toBeGreaterThan(300);
+		});
+
+		it("scrolls up while the finger is held near the top edge", () => {
+			const { view } = setupPhone();
+			const press = longPress(view, "C", Quadrant.Q1, 2);
+
+			press.moveTo({ x: 100, y: 10 });
+			runFrame();
+
+			expect(view.contentEl.scrollTop).toBeLessThan(300);
+		});
+
+		it("keeps scrolling frame after frame while the finger stays put", () => {
+			const { view } = setupPhone();
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo({ x: 100, y: 590 });
+
+			runFrame();
+			const afterOne = view.contentEl.scrollTop;
+			runFrame();
+			runFrame();
+
+			expect(view.contentEl.scrollTop).toBeGreaterThan(afterOne);
+		});
+
+		it("does not scroll while the finger is in the middle of the view", () => {
+			const { view } = setupPhone();
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+
+			press.moveTo({ x: 100, y: 300 });
+			runFrame();
+			runFrame();
+
+			expect(view.contentEl.scrollTop).toBe(300);
+		});
+
+		it("scrolls faster the closer the finger is to the edge", () => {
+			const near = setupPhone();
+			const nearPress = longPress(near.view, "A", Quadrant.Q1, 0);
+			nearPress.moveTo({ x: 100, y: 598 });
+			runFrame();
+			const fast = near.view.contentEl.scrollTop - 300;
+			nearPress.cancel();
+			document.body.innerHTML = "";
+
+			const far = setupPhone();
+			const farPress = longPress(far.view, "A", Quadrant.Q1, 0);
+			farPress.moveTo({ x: 100, y: 560 });
+			runFrame();
+			const slow = far.view.contentEl.scrollTop - 300;
+
+			expect(slow).toBeGreaterThan(0);
+			expect(fast).toBeGreaterThan(slow);
+		});
+
+		it("stops when the finger moves away from the edge", () => {
+			const { view } = setupPhone();
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo({ x: 100, y: 590 });
+			runFrame();
+
+			press.moveTo({ x: 100, y: 300 });
+			const settled = view.contentEl.scrollTop;
+			runFrame();
+			runFrame();
+
+			expect(view.contentEl.scrollTop).toBe(settled);
+		});
+
+		it("stops when the finger is lifted", () => {
+			const { view } = setupPhone();
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo({ x: 100, y: 590 });
+			runFrame();
+
+			press.release({ x: 100, y: 590 });
+			const settled = view.contentEl.scrollTop;
+			runFrame();
+			runFrame();
+
+			expect(view.contentEl.scrollTop).toBe(settled);
+		});
+
+		it("stops when the touch is cancelled", () => {
+			const { view } = setupPhone();
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+			press.moveTo({ x: 100, y: 590 });
+			runFrame();
+
+			press.cancel();
+			const settled = view.contentEl.scrollTop;
+			runFrame();
+
+			expect(view.contentEl.scrollTop).toBe(settled);
+		});
+
+		it("does not scroll before a drag has started", () => {
+			const { view } = setupPhone();
+			const taskEl = getTaskElByTitle(view, "A");
+
+			taskEl.dispatchEvent(touchEvent("touchstart", [{ x: 100, y: 590 }]));
+			taskEl.dispatchEvent(touchEvent("touchmove", [{ x: 100, y: 595 }]));
+			runFrame();
+
+			expect(view.contentEl.scrollTop).toBe(300);
+		});
+
+		it("does not scroll a view that has nothing to scroll", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B"] });
+			makeScrollable(view.contentEl, { top: 0, height: 600 }, 600);
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+
+			press.moveTo({ x: 100, y: 590 });
+			runFrame();
+
+			expect(view.contentEl.scrollTop).toBe(0);
+		});
+
+		it("does not scroll a container whose overflow is hidden (desktop layout)", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B"] });
+			makeScrollable(view.contentEl, { top: 0, height: 600 }, 2000, "hidden");
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+
+			press.moveTo({ x: 100, y: 590 });
+			runFrame();
+
+			expect(view.contentEl.scrollTop).toBe(0);
+		});
+
+		it("scrolls the hovered quadrant's own list when that is what overflows (tablet layout)", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"] });
+			makeScrollable(view.contentEl, { top: 0, height: 1000 }, 1000, "hidden");
+			const list = getQuadrantByType(view, Quadrant.Q1).querySelector(".pm-task-list") as HTMLElement;
+			makeScrollable(list, { top: 50, height: 430 }, 900);
+			const press = longPress(view, "A", Quadrant.Q1, 0);
+
+			press.moveTo({ x: 100, y: 470 }); // 10px above the list's bottom edge
+			runFrame();
+
+			expect(list.scrollTop).toBeGreaterThan(0);
+			expect(view.contentEl.scrollTop).toBe(0);
+		});
+
+		it("re-evaluates the drop position after scrolling moves the list under the finger", () => {
+			const { view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C", "D", "E", "F"] });
+			makeScrollable(view.contentEl, { top: 0, height: 480 }, 2000);
+			const press = longPress(view, "C", Quadrant.Q1, 2);
+			press.moveTo({ x: 100, y: 470 }); // below every task, near the bottom edge
+			expect(indicatorIsAbove(view)).toBeNull();
+
+			// Simulate the list having scrolled: every task is now below the finger
+			getTasksInQuadrant(view, Quadrant.Q1).forEach((el, i) => {
+				el.getBoundingClientRect = () => makeRect(10, 700 + i * TASK_PITCH, 260, TASK_HEIGHT);
+			});
+			runFrame();
+
+			expect(indicatorIsAbove(view)).toBe("A");
+		});
 	});
 });
 
