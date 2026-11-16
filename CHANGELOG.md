@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - First-run mobile hint now reads "Long-press a task to reorder it or drag it between quadrants"
 - Task rows set `user-select: none` and `-webkit-touch-callout: none` so a long-press drags instead of selecting text on iOS; the inline edit field stays selectable
 - Mobile Playwright projects now set `hasTouch: true`
+- CI runner pinned to `ubuntu-24.04`: `ubuntu-latest` now resolves to 26.04, where Playwright 1.58 cannot install Chromium
 
 **Fixed:**
 - A new task could appear in the middle of a quadrant after earlier tasks were deleted or completed. `addTask()` assigned `order` from the task count, which collided with an existing task's order; it now uses the highest existing order plus one
@@ -33,7 +34,7 @@ All notable changes to this project will be documented in this file.
 - `src/main.ts`, `src/view.ts`, `styles.css`
 - `tests/main.test.ts`, `tests/view-integration.test.ts`, `tests/styles.test.ts`, `tests/reorder.spec.ts`
 - `tests/harness/entry.ts`, `tests/harness/index.html`, `tests/harness/global-setup.ts`
-- `playwright.config.ts`, `.gitignore`
+- `playwright.config.ts`, `.gitignore`, `.github/workflows/ci.yml`
 - `README.md`, `docs/design.md`
 - `manifest.json`, `package.json`, `package-lock.json`, `versions.json` (bumped to 2.1.0)
 
