@@ -40,3 +40,4 @@ Track of development iterations and time estimates.
 | 2026-05-16 18:00 | ~5min | 2.0.2 — addressed Obsidian directory recommendations: workflow now uses `--generate-notes` and `actions/attest-build-provenance@v2` for cryptographic provenance on main.js and styles.css |
 | 2026-05-16 19:00 | ~5min | 2.0.3 — fixed lint warnings: replaced `builtin-modules` package with Node's `module.builtinModules`, removed `!important` from `.pm-hidden` via doubled-class specificity trick |
 | 2026-05-17 00:00 | ~2min | README — added Obsidian community directory badge + direct link below install steps |
+| 2026-11-15 18:00 | ~2h | 2.1.0 — reorder tasks by drag and drop (issue #5): `moveTaskToIndex()`, drop indicator, positional cross-quadrant drops, touch auto-scroll, fixed `addTask` order collision. Added a real-browser harness so Playwright drives the actual view with touch and mouse input. 333 Jest + 112 Playwright tests |

@@ -16,6 +16,7 @@ Thumbs.db
 
 # Test artifacts
 test-results/
+tests/harness/harness.bundle.js
 
 # Claude Code
 .claude/

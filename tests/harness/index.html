@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Task Priority Matrix — test harness</title>
+	<link rel="stylesheet" href="../../styles.css">
+	<style>
+		/* Simulate Obsidian's base CSS variables */
+		:root {
+			--background-primary: #ffffff;
+			--background-primary-alt: #f5f5f5;
+			--background-modifier-border: #ddd;
+			--interactive-accent: #7c5cbf;
+			--text-on-accent: #ffffff;
+			--text-normal: #222;
+			--text-muted: #999;
+		}
+		html, body {
+			margin: 0;
+			padding: 0;
+			height: 100%;
+			font-family: sans-serif;
+			overflow: hidden;
+		}
+		/*
+			Simulate Obsidian's workspace leaf container.
+			On mobile, Obsidian's chrome (header, tab bar) takes ~90px,
+			leaving the content area as viewport minus that.
+		*/
+		.obsidian-leaf-sim {
+			height: calc(100vh - 90px);
+			overflow: hidden;
+			position: relative;
+		}
+	</style>
+</head>
+<body>
+	<!-- The real view is mounted here by window.mountMatrix() -->
+	<div id="leaf" class="obsidian-leaf-sim"></div>
+	<script src="harness.bundle.js"></script>
+</body>
+</html>

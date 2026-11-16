@@ -72,7 +72,12 @@ Unidirectional data flow: User action → View calls Plugin CRUD → Plugin save
 
 - **Task completion** — checkbox per task (green `#22c55e`, neutral to quadrant colors), collapsible "Completed" bin below grid. `completedAt` timestamp on Task (falsy = active). Completed tasks show origin quadrant as color dot, relative time, strikethrough. Completion shows 5s undo notice. Section auto-expands on first completion, respects toggle after. Revive by clicking checked checkbox. Delete from completed with undo notice.
 
+- **Task ordering** — `order` is a per-quadrant position among active tasks. `moveTaskToIndex()` is the single place that changes it: it inserts at a clamped index and rewrites the affected quadrants to 0..n-1, which also repairs duplicate or gapped orders from older data. `addTask()` appends at highest order + 1. Completed tasks keep their old `order` and are never renumbered.
+- **Drop position** — one helper serves mouse and touch: the insertion index is the number of stationary tasks whose vertical midpoint is above the pointer. The drop indicator is a zero-height element with the line drawn by `::before`, so showing it never shifts the tasks being measured.
+- **Touch auto-scroll** — scrolling is blocked during a touch drag, so a `requestAnimationFrame` loop scrolls when the finger is within 60px of the scroll area's edge. The scroll area is the quadrant's task list when it overflows (wide screens), otherwise the view container (phones).
+
 ## Recent Changes
+- Reorder tasks (2026-11-15, 2.1.0, issue #5): drag within a quadrant to reorder, drop indicator, positional cross-quadrant drops, touch auto-scroll, `addTask` order fix, real-browser Playwright harness in `tests/harness/`
 - Task completion (2026-03-22): checkbox on tasks, collapsible completed section, revive/delete from bin, `formatCompletedDate()` utility, 42 new tests
 - Sync support (2026-03-02): added `onExternalSettingsChange()` hook — reloads data and re-renders when Obsidian Sync updates `data.json` externally
 - Design eval refinements (2026-02-17): stronger overflow fade (0.06 to 0.15), dark mode task highlight animation, SVG delete icon (setIcon), stronger edit hover affordance

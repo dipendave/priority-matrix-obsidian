@@ -100,13 +100,17 @@ export default class PriorityMatrixPlugin extends Plugin {
 
 	addTask(title: string, quadrant: Quadrant, dueDate: string | null): Task {
 		const tasksInQuadrant = this.getTasksForQuadrant(quadrant);
+		// Append after the highest existing order. Counting tasks is not enough:
+		// deleting or completing a task leaves a gap, and a count-based order
+		// would then collide with a task that is still in the list.
+		const lastOrder = tasksInQuadrant.reduce((max, t) => Math.max(max, t.order), -1);
 		const newTask: Task = {
 			id: this.generateId(),
 			title: title.trim(),
 			quadrant,
 			dueDate,
 			createdAt: new Date().toISOString(),
-			order: tasksInQuadrant.length,
+			order: lastOrder + 1,
 		};
 		this.data.tasks.push(newTask);
 		return newTask;
@@ -128,15 +132,51 @@ export default class PriorityMatrixPlugin extends Plugin {
 		return true;
 	}
 
+	/** Move a task to the end of a quadrant. */
 	moveTask(taskId: string, targetQuadrant: Quadrant): void {
+		this.moveTaskToIndex(taskId, targetQuadrant, Infinity);
+	}
+
+	/**
+	 * Place a task at a position within a quadrant's active task list.
+	 *
+	 * `index` is the position the task should end up at, counted among the
+	 * quadrant's active tasks without the moved task itself. Out-of-range values
+	 * are clamped; anything that is not a number means "last".
+	 *
+	 * Rewrites `order` to 0..n-1 for the affected quadrants, which also repairs
+	 * duplicate or gapped orders left behind by older versions.
+	 *
+	 * @returns true if the task's position or quadrant changed.
+	 */
+	moveTaskToIndex(taskId: string, targetQuadrant: Quadrant, index: number): boolean {
 		const task = this.data.tasks.find((t) => t.id === taskId);
-		if (task) {
-			task.quadrant = targetQuadrant;
-			const tasksInTarget = this.data.tasks.filter(
-				(t) => t.quadrant === targetQuadrant && t.id !== taskId
-			);
-			task.order = tasksInTarget.length;
+		if (!task || task.completedAt) return false;
+
+		const sourceQuadrant = task.quadrant;
+		const others = this.getTasksForQuadrant(targetQuadrant).filter((t) => t.id !== taskId);
+
+		const requested = Number.isNaN(index) ? Infinity : Math.floor(index);
+		const position = Math.max(0, Math.min(requested, others.length));
+
+		if (sourceQuadrant === targetQuadrant) {
+			const currentPosition = this.getTasksForQuadrant(targetQuadrant).indexOf(task);
+			if (currentPosition === position) return false;
 		}
+
+		others.splice(position, 0, task);
+		task.quadrant = targetQuadrant;
+		others.forEach((t, i) => {
+			t.order = i;
+		});
+
+		if (sourceQuadrant !== targetQuadrant) {
+			this.getTasksForQuadrant(sourceQuadrant).forEach((t, i) => {
+				t.order = i;
+			});
+		}
+
+		return true;
 	}
 
 	private generateId(): string {

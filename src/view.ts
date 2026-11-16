@@ -9,6 +9,15 @@ import {
 } from "./types";
 import PriorityMatrixPlugin from "./main";
 
+/** How long a finger must rest on a task before a touch drag starts. */
+const LONG_PRESS_MS = 250;
+/** Finger travel that turns a press into a scroll instead of a drag. */
+const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+/** A touch drag this close to the top or bottom of a scroll area scrolls it. */
+const AUTO_SCROLL_EDGE_PX = 60;
+/** Scroll speed per animation frame when the finger is right at the edge. */
+const AUTO_SCROLL_MAX_SPEED_PX = 14;
+
 export class PriorityMatrixView extends ItemView {
 	plugin: PriorityMatrixPlugin;
 
@@ -16,6 +25,9 @@ export class PriorityMatrixView extends ItemView {
 	private touchClone: HTMLElement | null = null;
 	private touchTimeout: number | null = null;
 	private draggedEl: HTMLElement | null = null;
+	private dropIndicator: HTMLElement | null = null;
+	private lastTouchPoint: { x: number; y: number } | null = null;
+	private autoScrollFrame: number | null = null;
 	private completedSectionExpanded = false;
 
 	constructor(leaf: WorkspaceLeaf, plugin: PriorityMatrixPlugin) {
@@ -38,7 +50,7 @@ export class PriorityMatrixView extends ItemView {
 	onOpen(): Promise<void> {
 		this.renderMatrix();
 		if (Platform.isMobile && !this.plugin.data.hasSeenDragHint) {
-			new Notice("Long-press a task to drag it between quadrants", 5000);
+			new Notice("Long-press a task to reorder it or drag it between quadrants", 5000);
 			this.plugin.data.hasSeenDragHint = true;
 			void this.plugin.savePluginData();
 		}
@@ -56,6 +68,8 @@ export class PriorityMatrixView extends ItemView {
 		const container = this.contentEl;
 		container.empty();
 		container.addClass("pm-container");
+		// The indicator lived inside the DOM that was just thrown away
+		this.dropIndicator = null;
 
 		const matrixWrapper = container.createDiv({ cls: "pm-matrix-wrapper" });
 
@@ -480,6 +494,69 @@ export class PriorityMatrixView extends ItemView {
 		});
 	}
 
+	// ==================== DROP POSITION ====================
+
+	/** Tasks in a quadrant that would stay where they are: all but the one being dragged. */
+	private getStationaryTaskEls(quadrantEl: HTMLElement, draggedTaskId: string): HTMLElement[] {
+		return Array.from(quadrantEl.querySelectorAll<HTMLElement>(".pm-task")).filter(
+			(el) => el.getAttribute("data-task-id") !== draggedTaskId
+		);
+	}
+
+	/**
+	 * Where in a quadrant a task dropped at this height would land: the number
+	 * of stationary tasks whose vertical midpoint is above the pointer.
+	 */
+	private getDropIndex(quadrantEl: HTMLElement, clientY: number, draggedTaskId: string): number {
+		let index = 0;
+		for (const el of this.getStationaryTaskEls(quadrantEl, draggedTaskId)) {
+			const rect = el.getBoundingClientRect();
+			if (clientY > rect.top + rect.height / 2) index++;
+		}
+		return index;
+	}
+
+	/**
+	 * Show a line in the quadrant's task list where the dragged task would land.
+	 * Hidden when the drop would change nothing, and over an empty quadrant
+	 * (where the quadrant highlight already says everything).
+	 */
+	private updateDropIndicator(quadrantEl: HTMLElement, clientY: number, draggedTaskId: string): void {
+		const listEl = quadrantEl.querySelector<HTMLElement>(".pm-task-list");
+		if (!listEl) {
+			this.clearDropIndicator();
+			return;
+		}
+
+		const allTaskEls = Array.from(listEl.querySelectorAll<HTMLElement>(".pm-task"));
+		const stationary = this.getStationaryTaskEls(quadrantEl, draggedTaskId);
+		const index = this.getDropIndex(quadrantEl, clientY, draggedTaskId);
+		// -1 when the task is being dragged in from another quadrant
+		const currentIndex = allTaskEls.findIndex(
+			(el) => el.getAttribute("data-task-id") === draggedTaskId
+		);
+
+		if (stationary.length === 0 || currentIndex === index) {
+			this.clearDropIndicator();
+			return;
+		}
+
+		const before = index < stationary.length ? stationary[index] : null;
+		if (!this.dropIndicator) {
+			this.dropIndicator = listEl.createDiv({ cls: "pm-drop-indicator" });
+		}
+		if (this.dropIndicator.parentElement !== listEl || this.dropIndicator.nextElementSibling !== before) {
+			listEl.insertBefore(this.dropIndicator, before);
+		}
+	}
+
+	private clearDropIndicator(): void {
+		if (this.dropIndicator) {
+			this.dropIndicator.remove();
+			this.dropIndicator = null;
+		}
+	}
+
 	// ==================== DESKTOP DRAG & DROP ====================
 
 	private setupDesktopDrag(taskEl: HTMLElement, taskId: string): void {
@@ -495,6 +572,7 @@ export class PriorityMatrixView extends ItemView {
 		taskEl.addEventListener("dragend", () => {
 			taskEl.removeClass("pm-dragging");
 			this.draggedTaskId = null;
+			this.clearDropIndicator();
 			this.contentEl.querySelectorAll(".pm-drop-target").forEach((el) => {
 				(el as HTMLElement).removeClass("pm-drop-target");
 			});
@@ -508,25 +586,34 @@ export class PriorityMatrixView extends ItemView {
 				e.dataTransfer.dropEffect = "move";
 			}
 			quadrantEl.addClass("pm-drop-target");
+			// The dragged data cannot be read during dragover, so rely on the ID
+			// recorded at dragstart. It is unset for drags that began elsewhere.
+			if (this.draggedTaskId) {
+				this.updateDropIndicator(quadrantEl, e.clientY, this.draggedTaskId);
+			}
 		});
 
 		quadrantEl.addEventListener("dragleave", (e: DragEvent) => {
 			const relatedTarget = e.relatedTarget as HTMLElement;
 			if (!quadrantEl.contains(relatedTarget)) {
 				quadrantEl.removeClass("pm-drop-target");
+				// Only if it is still ours: the next quadrant may already have claimed it
+				if (this.dropIndicator && quadrantEl.contains(this.dropIndicator)) {
+					this.clearDropIndicator();
+				}
 			}
 		});
 
 		quadrantEl.addEventListener("drop", (e: DragEvent) => {
 			e.preventDefault();
 			quadrantEl.removeClass("pm-drop-target");
+			this.clearDropIndicator();
 
 			const taskId = e.dataTransfer?.getData("text/plain");
 			if (!taskId) return;
 
-			const task = this.plugin.data.tasks.find((t) => t.id === taskId);
-			if (task && task.quadrant !== quadrant) {
-				this.plugin.moveTask(taskId, quadrant);
+			const index = this.getDropIndex(quadrantEl, e.clientY, taskId);
+			if (this.plugin.moveTaskToIndex(taskId, quadrant, index)) {
 				this.renderMatrix();
 				void this.plugin.savePluginData();
 			}
@@ -569,7 +656,7 @@ export class PriorityMatrixView extends ItemView {
 				if (navigator.vibrate) {
 					navigator.vibrate(50);
 				}
-			}, 250);
+			}, LONG_PRESS_MS);
 		};
 
 		const onTouchMove = (e: TouchEvent) => {
@@ -578,7 +665,7 @@ export class PriorityMatrixView extends ItemView {
 			const dy = Math.abs(touch.clientY - startY);
 
 			// Cancel drag initiation if finger moves too much before timeout
-			if (!isDragging && (dx > 10 || dy > 10)) {
+			if (!isDragging && (dx > LONG_PRESS_MOVE_TOLERANCE_PX || dy > LONG_PRESS_MOVE_TOLERANCE_PX)) {
 				if (this.touchTimeout !== null) {
 					clearTimeout(this.touchTimeout);
 					this.touchTimeout = null;
@@ -595,17 +682,9 @@ export class PriorityMatrixView extends ItemView {
 				top: `${touch.clientY - 20}px`,
 			});
 
-			// Highlight quadrant under finger
-			const targetQuadrant = this.getQuadrantAtPoint(touch.clientX, touch.clientY);
-			this.contentEl.querySelectorAll(".pm-quadrant").forEach((el) => {
-				(el as HTMLElement).removeClass("pm-drop-target");
-			});
-			if (targetQuadrant) {
-				const targetEl = this.contentEl.querySelector(`[data-quadrant="${targetQuadrant}"]`);
-				if (targetEl) {
-					(targetEl as HTMLElement).addClass("pm-drop-target");
-				}
-			}
+			this.lastTouchPoint = { x: touch.clientX, y: touch.clientY };
+			this.updateTouchDropTarget(touch.clientX, touch.clientY);
+			this.updateAutoScroll();
 		};
 
 		const onTouchEnd = (e: TouchEvent) => {
@@ -620,12 +699,12 @@ export class PriorityMatrixView extends ItemView {
 			}
 
 			const touch = e.changedTouches[0];
-			const targetQuadrant = this.getQuadrantAtPoint(touch.clientX, touch.clientY);
+			const targetEl = this.getQuadrantElAtPoint(touch.clientX, touch.clientY);
 
-			if (targetQuadrant && this.draggedTaskId) {
-				const task = this.plugin.data.tasks.find((t) => t.id === this.draggedTaskId);
-				if (task && task.quadrant !== targetQuadrant) {
-					this.plugin.moveTask(this.draggedTaskId, targetQuadrant);
+			if (targetEl) {
+				const targetQuadrant = targetEl.getAttribute("data-quadrant") as Quadrant;
+				const index = this.getDropIndex(targetEl, touch.clientY, this.draggedTaskId);
+				if (this.plugin.moveTaskToIndex(this.draggedTaskId, targetQuadrant, index)) {
 					void this.plugin.savePluginData();
 				}
 			}
@@ -650,7 +729,26 @@ export class PriorityMatrixView extends ItemView {
 		taskEl.addEventListener("touchcancel", onTouchCancel);
 	}
 
+	/** Highlight the quadrant under the finger and show where the task would land in it. */
+	private updateTouchDropTarget(x: number, y: number): void {
+		const targetEl = this.getQuadrantElAtPoint(x, y);
+		this.contentEl.querySelectorAll(".pm-drop-target").forEach((el) => {
+			if (el !== targetEl) (el as HTMLElement).removeClass("pm-drop-target");
+		});
+
+		if (targetEl && this.draggedTaskId) {
+			targetEl.addClass("pm-drop-target");
+			this.updateDropIndicator(targetEl, y, this.draggedTaskId);
+		} else {
+			this.clearDropIndicator();
+		}
+	}
+
 	private cleanupTouchDrag(): void {
+		this.stopAutoScroll();
+		this.lastTouchPoint = null;
+		this.clearDropIndicator();
+
 		if (this.touchClone) {
 			this.touchClone.remove();
 			this.touchClone = null;
@@ -666,17 +764,100 @@ export class PriorityMatrixView extends ItemView {
 		});
 	}
 
-	private getQuadrantAtPoint(x: number, y: number): Quadrant | null {
-		const quadrants = this.contentEl.querySelectorAll(".pm-quadrant");
+	private getQuadrantElAtPoint(x: number, y: number): HTMLElement | null {
+		const quadrants = this.contentEl.querySelectorAll<HTMLElement>(".pm-quadrant");
 		for (const qEl of Array.from(quadrants)) {
 			const rect = qEl.getBoundingClientRect();
 			if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-				return qEl.getAttribute("data-quadrant") as Quadrant;
+				return qEl;
 			}
 		}
 		return null;
 	}
 
+	// ==================== TOUCH AUTO-SCROLL ====================
+	// Scrolling is blocked while a touch drag is in progress, so without this a
+	// task could never be dragged to a position that is currently off-screen.
+
+	/** Start or stop the scroll loop to match where the finger is now. */
+	private updateAutoScroll(): void {
+		if (!this.getAutoScrollStep()) {
+			this.stopAutoScroll();
+			return;
+		}
+		if (this.autoScrollFrame === null) {
+			this.autoScrollFrame = requestAnimationFrame(() => this.autoScrollTick());
+		}
+	}
+
+	private autoScrollTick(): void {
+		this.autoScrollFrame = null;
+		const step = this.getAutoScrollStep();
+		if (!step || !this.lastTouchPoint) return;
+
+		step.el.scrollTop += step.delta;
+		// The list moved under a finger that did not: the drop position changed
+		this.updateTouchDropTarget(this.lastTouchPoint.x, this.lastTouchPoint.y);
+
+		this.autoScrollFrame = requestAnimationFrame(() => this.autoScrollTick());
+	}
+
+	private stopAutoScroll(): void {
+		if (this.autoScrollFrame !== null) {
+			cancelAnimationFrame(this.autoScrollFrame);
+			this.autoScrollFrame = null;
+		}
+	}
+
+	/** Which element to scroll and by how much this frame, or null if the finger is not near an edge. */
+	private getAutoScrollStep(): { el: HTMLElement; delta: number } | null {
+		const point = this.lastTouchPoint;
+		if (!point || !this.draggedTaskId) return null;
+
+		const el = this.getScrollContainerAt(point.x, point.y);
+		if (!el) return null;
+
+		// Only the part of the scroll area that is actually on screen has edges to reach for
+		const rect = el.getBoundingClientRect();
+		const top = Math.max(rect.top, 0);
+		const bottom = Math.min(rect.bottom, window.innerHeight);
+
+		const fromTop = point.y - top;
+		const fromBottom = bottom - point.y;
+		if (fromTop < AUTO_SCROLL_EDGE_PX) {
+			return { el, delta: -autoScrollSpeed(fromTop) };
+		}
+		if (fromBottom < AUTO_SCROLL_EDGE_PX) {
+			return { el, delta: autoScrollSpeed(fromBottom) };
+		}
+		return null;
+	}
+
+	/**
+	 * The element that scrolls at this point. On phones the whole view is one
+	 * scroll container; on wider screens each quadrant's task list scrolls.
+	 */
+	private getScrollContainerAt(x: number, y: number): HTMLElement | null {
+		const quadrantEl = this.getQuadrantElAtPoint(x, y);
+		const listEl = quadrantEl ? quadrantEl.querySelector<HTMLElement>(".pm-task-list") : null;
+		for (const el of [listEl, this.contentEl]) {
+			if (el && isScrollable(el)) return el;
+		}
+		return null;
+	}
+
+}
+
+function isScrollable(el: HTMLElement): boolean {
+	if (el.scrollHeight <= el.clientHeight) return false;
+	const overflowY = getComputedStyle(el).overflowY;
+	return overflowY === "auto" || overflowY === "scroll";
+}
+
+/** Faster the closer the finger is to the edge; full speed at or past it. */
+function autoScrollSpeed(distanceFromEdge: number): number {
+	const closeness = 1 - Math.max(distanceFromEdge, 0) / AUTO_SCROLL_EDGE_PX;
+	return Math.ceil(AUTO_SCROLL_MAX_SPEED_PX * closeness);
 }
 
 // ==================== EXPORTED UTILITIES ====================
