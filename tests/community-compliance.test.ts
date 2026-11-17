@@ -187,3 +187,28 @@ describe("Sentence case UI text", () => {
 		expect(text).toBe("Open matrix");
 	});
 });
+
+// ==================== Release metadata ====================
+
+describe("Release metadata", () => {
+	const root = resolve(__dirname, "..");
+	const manifest = JSON.parse(readFileSync(resolve(root, "manifest.json"), "utf8"));
+	const versions = JSON.parse(readFileSync(resolve(root, "versions.json"), "utf8"));
+	const pkg = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+
+	test("package.json version matches manifest.json", () => {
+		expect(pkg.version).toBe(manifest.version);
+	});
+
+	// Obsidian uses versions.json to pick the newest release an older app can run
+	test("versions.json maps the current version to the manifest's minAppVersion", () => {
+		expect(versions[manifest.version]).toBe(manifest.minAppVersion);
+	});
+
+	// The directory flags any API newer than minAppVersion. The newest API this
+	// plugin relies on is the awaitable Workspace.revealLeaf(), added in 1.7.2.
+	test("minAppVersion is at least 1.7.2", () => {
+		const [major, minor, patch] = manifest.minAppVersion.split(".").map(Number);
+		expect(major * 1e6 + minor * 1e3 + patch).toBeGreaterThanOrEqual(1 * 1e6 + 7 * 1e3 + 2);
+	});
+});

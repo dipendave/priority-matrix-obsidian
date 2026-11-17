@@ -1,24 +1,29 @@
-import tseslint from "typescript-eslint";
+import { defineConfig, globalIgnores } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
 
-export default tseslint.config(
-	...tseslint.configs.recommendedTypeChecked,
+// Mirrors the checks Obsidian's community directory runs on every release.
+// Lint from the project root (`eslint .`): the recommended config also checks
+// manifest.json, package.json and LICENSE, which `eslint src/` never visits.
+export default defineConfig([
+	// Build output, Node build scripts and test code are not plugin source.
+	globalIgnores([
+		"node_modules",
+		"main.js",
+		"esbuild.config.mjs",
+		"jest.config.js",
+		"playwright.config.ts",
+		"scripts",
+		"tests",
+		"test-results",
+	]),
+	...obsidianmd.configs.recommended,
 	{
-		files: ["src/**/*.ts"],
 		languageOptions: {
-			parserOptions: { project: "./tsconfig.json" },
-		},
-		plugins: {
-			obsidianmd,
-		},
-		rules: {
-			...obsidianmd.configs.recommended,
-			"obsidianmd/sample-names": "off",
-			// loadData() returns any by design in Obsidian's API
-			"@typescript-eslint/no-unsafe-assignment": "off",
+			parserOptions: {
+				projectService: {
+					allowDefaultProject: ["eslint.config.*"],
+				},
+			},
 		},
 	},
-	{
-		ignores: ["**/*.js", "**/*.mjs", "tests/**", "node_modules/**"],
-	},
-);
+]);

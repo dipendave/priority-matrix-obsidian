@@ -50,7 +50,8 @@ export default class PriorityMatrixPlugin extends Plugin {
 	}
 
 	async loadPluginData(): Promise<void> {
-		const loaded = await this.loadData();
+		// loadData() is typed `any`; data.json is ours, but may be missing or partial
+		const loaded = (await this.loadData()) as Partial<PriorityMatrixData> | null;
 		this.data = Object.assign({}, DEFAULT_DATA, loaded);
 		if (!Array.isArray(this.data.tasks)) {
 			this.data.tasks = [];

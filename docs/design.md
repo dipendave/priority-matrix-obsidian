@@ -77,6 +77,7 @@ Unidirectional data flow: User action → View calls Plugin CRUD → Plugin save
 - **Touch auto-scroll** — scrolling is blocked during a touch drag, so a `requestAnimationFrame` loop scrolls when the finger is within 60px of the scroll area's edge. The scroll area is the quadrant's task list when it overflows (wide screens), otherwise the view container (phones).
 
 ## Recent Changes
+- Directory review fixes (2026-11-16, 2.1.1): cleared 16 automated-review findings on the 2.1.0 scorecard. `minAppVersion` raised to 1.7.2 (awaitable `revealLeaf`), timers called on `window`, `createFragment()` instead of `document.createDocumentFragment()`, typed `loadData()`. `eslint-plugin-obsidianmd` upgraded to 0.6.0 and `npm run lint` (zero warnings allowed) added to CI so the directory's rules are checked before each release
 - Reorder tasks (2026-11-15, 2.1.0, issue #5): drag within a quadrant to reorder, drop indicator, positional cross-quadrant drops, touch auto-scroll, `addTask` order fix, real-browser Playwright harness in `tests/harness/`
 - Task completion (2026-03-22): checkbox on tasks, collapsible completed section, revive/delete from bin, `formatCompletedDate()` utility, 42 new tests
 - Sync support (2026-03-02): added `onExternalSettingsChange()` hook — reloads data and re-renders when Obsidian Sync updates `data.json` externally

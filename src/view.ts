@@ -98,7 +98,7 @@ export class PriorityMatrixView extends ItemView {
 			this.renderCompletedSection(container, completedTasks);
 		}
 
-		requestAnimationFrame(() => this.updateOverflowIndicators());
+		window.requestAnimationFrame(() => this.updateOverflowIndicators());
 	}
 
 	private updateOverflowIndicators(): void {
@@ -152,7 +152,7 @@ export class PriorityMatrixView extends ItemView {
 				const input = formEl.querySelector(".pm-task-input") as HTMLInputElement;
 				input?.focus();
 				// Scroll form into view after keyboard opens
-				setTimeout(() => {
+				window.setTimeout(() => {
 					formEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
 				}, 300);
 			}
@@ -273,7 +273,7 @@ export class PriorityMatrixView extends ItemView {
 
 		// Scroll form into view when keyboard opens on mobile
 		inputEl.addEventListener("focus", () => {
-			setTimeout(() => {
+			window.setTimeout(() => {
 				formEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
 			}, 300);
 		});
@@ -311,7 +311,7 @@ export class PriorityMatrixView extends ItemView {
 		await this.plugin.savePluginData();
 		this.renderMatrix();
 
-		const fragment = document.createDocumentFragment();
+		const fragment = createFragment();
 		fragment.appendText("Task deleted. ");
 		const undoLink = fragment.createEl("a", { text: "Undo", cls: "pm-undo-link" });
 
@@ -339,7 +339,7 @@ export class PriorityMatrixView extends ItemView {
 		await this.plugin.savePluginData();
 		this.renderMatrix();
 
-		const fragment = document.createDocumentFragment();
+		const fragment = createFragment();
 		fragment.appendText("Task completed. ");
 		const undoLink = fragment.createEl("a", { text: "Undo", cls: "pm-undo-link" });
 
@@ -413,7 +413,7 @@ export class PriorityMatrixView extends ItemView {
 
 		// Scroll form into view when keyboard opens on mobile
 		titleInput.addEventListener("focus", () => {
-			setTimeout(() => {
+			window.setTimeout(() => {
 				formEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
 			}, 300);
 		});
@@ -648,7 +648,8 @@ export class PriorityMatrixView extends ItemView {
 					top: `${startY - 20}px`,
 					width: `${taskEl.offsetWidth}px`,
 				});
-				document.body.appendChild(clone);
+				// The task's own document: in a popout window that is not the global one
+				taskEl.doc.body.appendChild(clone);
 				this.touchClone = clone;
 
 				taskEl.addClass("pm-dragging");
@@ -667,7 +668,7 @@ export class PriorityMatrixView extends ItemView {
 			// Cancel drag initiation if finger moves too much before timeout
 			if (!isDragging && (dx > LONG_PRESS_MOVE_TOLERANCE_PX || dy > LONG_PRESS_MOVE_TOLERANCE_PX)) {
 				if (this.touchTimeout !== null) {
-					clearTimeout(this.touchTimeout);
+					window.clearTimeout(this.touchTimeout);
 					this.touchTimeout = null;
 				}
 				return;
@@ -689,7 +690,7 @@ export class PriorityMatrixView extends ItemView {
 
 		const onTouchEnd = (e: TouchEvent) => {
 			if (this.touchTimeout !== null) {
-				clearTimeout(this.touchTimeout);
+				window.clearTimeout(this.touchTimeout);
 				this.touchTimeout = null;
 			}
 
@@ -716,7 +717,7 @@ export class PriorityMatrixView extends ItemView {
 
 		const onTouchCancel = () => {
 			if (this.touchTimeout !== null) {
-				clearTimeout(this.touchTimeout);
+				window.clearTimeout(this.touchTimeout);
 				this.touchTimeout = null;
 			}
 			isDragging = false;
@@ -786,7 +787,7 @@ export class PriorityMatrixView extends ItemView {
 			return;
 		}
 		if (this.autoScrollFrame === null) {
-			this.autoScrollFrame = requestAnimationFrame(() => this.autoScrollTick());
+			this.autoScrollFrame = window.requestAnimationFrame(() => this.autoScrollTick());
 		}
 	}
 
@@ -799,12 +800,12 @@ export class PriorityMatrixView extends ItemView {
 		// The list moved under a finger that did not: the drop position changed
 		this.updateTouchDropTarget(this.lastTouchPoint.x, this.lastTouchPoint.y);
 
-		this.autoScrollFrame = requestAnimationFrame(() => this.autoScrollTick());
+		this.autoScrollFrame = window.requestAnimationFrame(() => this.autoScrollTick());
 	}
 
 	private stopAutoScroll(): void {
 		if (this.autoScrollFrame !== null) {
-			cancelAnimationFrame(this.autoScrollFrame);
+			window.cancelAnimationFrame(this.autoScrollFrame);
 			this.autoScrollFrame = null;
 		}
 	}
