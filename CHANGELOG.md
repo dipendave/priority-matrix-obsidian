@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-11-16 20:00] - 2.1.1 — Clear the directory's automated review findings
+
+**Why:** After 2.1.0 was released, the plugin's scorecard on community.obsidian.md changed from Review "Passed" to "Risks", with 16 issues from the automated scan (3 risks, 13 warnings). Only 2 of the 16 were in the new reorder code. The other 14 were in code that 2.0.3 already had: the directory's rules have been tightened since May, and the new release triggered a fresh scan. Local lint missed all of it because the repo pinned `eslint-plugin-obsidianmd` 0.1.9; the current version is 0.6.0.
+
+**Fixed (all 16 scorecard findings):**
+- Risk ×3, "Uses Obsidian APIs newer than the declared minAppVersion" (`src/main.ts` `revealLeaf` ×2, `getLeaf`): raised `minAppVersion` from 0.15.0 to **1.7.2**. The awaitable `Workspace.revealLeaf()` is 1.7.2, `getLeaf()` is 0.16.0 and `setCssStyles()` is 1.1.7, so 0.15.0 was never accurate
+- Warning ×9, bare timers: `requestAnimationFrame`, `setTimeout` and `clearTimeout` are now called on `window` (also `cancelAnimationFrame`)
+- Warning ×2, `document.createDocumentFragment()`: replaced with Obsidian's `createFragment()`
+- Warning ×2, unsafe `any` assignment: `loadData()` result is now typed `Partial<PriorityMatrixData> | null`
+
+**Also fixed (flagged by the newer rules, not yet on the scorecard):**
+- The floating copy shown during a touch drag is now added to the task's own document (`taskEl.doc.body`) instead of the main window's, so it appears in the right window when the view is in a popout
+
+**Changed:**
+- `eslint-plugin-obsidianmd` 0.1.9 → 0.6.0, with `eslint.config.mjs` rewritten for its flat-config format. `typescript` 4.7.4 → 5.9.3 and `typescript-eslint` → 8.73 to meet its requirements
+- `npm run lint` now lints from the project root (so `manifest.json`, `package.json` and `LICENSE` are checked too) and fails on warnings, since the directory counts warnings as issues. The `@typescript-eslint/no-unsafe-assignment` exemption is gone
+- CI now runs lint, on Node 22 (ESLint 10 needs Node 20.19+). Previously lint was not part of CI at all
+- Test mock gained Obsidian's `createFragment()` global and `Node.doc` / `Node.win`
+
+**Impact:** Obsidian versions older than 1.7.2 will no longer be offered new releases; they stay on 2.1.0.
+
+**Verified:** `npm run lint` clean with zero warnings under the 0.6.0 rules, 337 Jest + 112 Playwright tests pass, build clean. Not yet verified: the directory's own scan of 2.1.1, which only runs after release
+
+**Files:**
+- `src/main.ts`, `src/view.ts`
+- `manifest.json`, `versions.json`, `package.json`, `package-lock.json` (2.1.1, minAppVersion 1.7.2)
+- `eslint.config.mjs`, `.github/workflows/ci.yml`
+- `tests/__mocks__/obsidian.ts`, `tests/view-integration.test.ts`, `tests/community-compliance.test.ts`
+- `README.md`, `docs/design.md`
+
+---
+
 ## [2026-11-15 18:00] - 2.1.0 — Reorder tasks by drag and drop
 
 **Why:** [Issue #5](https://github.com/dipendave/priority-matrix-obsidian/issues/5) — the order of tasks within a quadrant could not be changed. Dragging only moved a task between quadrants and always appended it to the end.

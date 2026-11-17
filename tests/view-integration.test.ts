@@ -2070,6 +2070,20 @@ describe("touch drag and drop", () => {
 		});
 	});
 
+	describe("popout windows", () => {
+		it("adds the floating copy to the window the task is in, not the main window", () => {
+			const { view } = setupWithTasks({ [Quadrant.Q1]: ["A", "B"] });
+			// A popout window has its own document; move the view into one
+			const popout = document.implementation.createHTMLDocument("popout");
+			popout.body.appendChild(popout.adoptNode(view.contentEl));
+
+			longPress(view, "A", Quadrant.Q1, 0);
+
+			expect(popout.body.querySelector(".pm-touch-clone")).not.toBeNull();
+			expect(document.body.querySelector(".pm-touch-clone")).toBeNull();
+		});
+	});
+
 	describe("cancelling", () => {
 		it("changes nothing and cleans up when the system cancels the touch", () => {
 			const { plugin, view } = setupTouch({ [Quadrant.Q1]: ["A", "B", "C"] });

@@ -3,7 +3,7 @@
 Prioritize your tasks by urgency and importance, right inside Obsidian. Based on the classic Eisenhower Matrix method.
 
 [![Obsidian Community Plugin](https://img.shields.io/badge/Obsidian-Community%20Plugin-7c5cbf?logo=obsidian&logoColor=white)](https://community.obsidian.md/plugins/task-priority-matrix)
-![Obsidian](https://img.shields.io/badge/Obsidian-0.15.0+-purple)
+![Obsidian](https://img.shields.io/badge/Obsidian-1.7.2+-purple)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ![Desktop view of the Task Priority Matrix plugin](screenshots/desktop-populated.png)
@@ -68,6 +68,7 @@ Open the matrix from the ribbon icon or the command palette (**Task Priority Mat
 npm install
 npm run dev          # watch mode
 npm run build        # production build
+npm run lint         # the checks Obsidian's plugin directory runs on each release
 npm test             # unit tests (Jest)
 npm run test:mobile  # layout and drag-and-drop tests in a real browser (Playwright)
 npm run screenshots  # regenerate README screenshots

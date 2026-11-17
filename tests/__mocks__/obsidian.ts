@@ -44,6 +44,30 @@ if (typeof HTMLElement !== "undefined") {
 		HP.setCssStyles = function (styles: Record<string, string>) { Object.assign(this.style, styles); };
 	}
 
+	// Obsidian exposes each node's own document and window as `doc` / `win`,
+	// which differ from the globals when the node lives in a popout window.
+	const NP = Node.prototype as any;
+	if (!("doc" in NP)) {
+		Object.defineProperty(NP, "doc", {
+			configurable: true,
+			get(this: Node) { return this.ownerDocument ?? (this as unknown as Document); },
+		});
+		Object.defineProperty(NP, "win", {
+			configurable: true,
+			get(this: Node) { return (this.ownerDocument ?? (this as unknown as Document)).defaultView; },
+		});
+	}
+
+	// Global createFragment() helper
+	const G = globalThis as any;
+	if (!G.createFragment) {
+		G.createFragment = function (callback?: (el: DocumentFragment) => void): DocumentFragment {
+			const fragment = document.createDocumentFragment();
+			if (callback) callback(fragment);
+			return fragment;
+		};
+	}
+
 	const FP = DocumentFragment.prototype as any;
 	if (!FP.createEl) {
 		FP.createEl = function (tag: string, opts?: any) { return createChildElement.call(this, tag, opts); };

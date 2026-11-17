@@ -9,9 +9,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          # ESLint 10 and Obsidian's lint plugin need Node 20.19 or newer
+          node-version: '22'
           cache: 'npm'
       - run: npm ci
+      # The same rules Obsidian's community directory scans each release with
+      - run: npm run lint
       - run: npm test
       - run: npx playwright install chromium
       - run: npm run test:mobile
